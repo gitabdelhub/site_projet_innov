@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #faf9f6;
+  color: #202020;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Custom scrollbar for move history */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f3f2ee;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Custom radial check alert glow for the King */
+.radial-check {
+  box-shadow: inset 0 0 16px rgba(232, 56, 8, 0.6);
+  background: radial-gradient(circle, rgba(232, 56, 8, 0.5) 0%, rgba(232, 56, 8, 0.15) 75%, transparent 100%) !important;
+}
+
+/* Responsive Game Layout classes */
+.game-board-container {
+  width: 100%;
+  max-width: 600px;
+}
+
+@media (min-width: 1024px) {
+  .game-board-container {
+    max-width: min(600px, calc(100vh - 160px));
+  }
+  
+  .game-sidebar-container {
+    height: min(650px, calc(100vh - 80px));
+  }
+}
+
