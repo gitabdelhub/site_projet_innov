@@ -6,19 +6,21 @@ export const Navigation = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [coachDropdownOpen, setCoachDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
   const isCoachActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <nav className="bg-bg-card border-b border-gray-200/50 shadow-xs">
-      <div className="max-w-7xl mx-auto px-6">
+    <nav className="bg-bg-card border-b border-gray-200/50 shadow-xs sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="text-xl font-black text-text-primary flex items-center gap-1.5 hover:opacity-85 transition-opacity">
-            <span className="text-2xl text-accent">♞</span> Chess Hub
+          <Link to="/" className="text-lg sm:text-xl font-black text-text-primary flex items-center gap-1.5 hover:opacity-85 transition-opacity">
+            <span className="text-xl sm:text-2xl text-accent">♞</span> Chess Hub
           </Link>
 
-          <div className="flex items-center gap-6">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-6">
             <Link
               to="/"
               className={`text-sm font-medium transition-colors ${
@@ -116,7 +118,128 @@ export const Navigation = () => {
               </Link>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-bg-darker transition-colors"
+          >
+            <svg className="w-6 h-6 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden py-4 space-y-2 border-t border-gray-200/50 mt-2">
+            <Link
+              to="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+              }`}
+            >
+              Home
+            </Link>
+            <Link
+              to="/game"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/game') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+              }`}
+            >
+              Play
+            </Link>
+            <div className="px-4 py-2">
+              <button
+                onClick={() => setCoachDropdownOpen(!coachDropdownOpen)}
+                className={`text-sm font-medium transition-colors flex items-center gap-1 w-full ${
+                  isCoachActive('/coach') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                AI Coach
+                <svg className={`w-4 h-4 transition-transform ${coachDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {coachDropdownOpen && (
+                <div className="mt-2 space-y-1 pl-4">
+                  <Link
+                    to="/coach/elo"
+                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
+                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
+                      isActive('/coach/elo') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                    }`}
+                  >
+                    📊 Elo Prediction
+                  </Link>
+                  <Link
+                    to="/coach/tactics"
+                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
+                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
+                      isActive('/coach/tactics') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                    }`}
+                  >
+                    ⚔️ Tactic Trainer
+                  </Link>
+                  <Link
+                    to="/coach/position"
+                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
+                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
+                      isActive('/coach/position') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                    }`}
+                  >
+                    🎯 Position Trainer
+                  </Link>
+                  <Link
+                    to="/coach/themes"
+                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
+                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
+                      isActive('/coach/themes') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                    }`}
+                  >
+                    🧩 Theme Analyzer
+                  </Link>
+                </div>
+              )}
+            </div>
+            <Link
+              to="/leaderboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/leaderboard') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+              }`}
+            >
+              Leaderboard
+            </Link>
+            {user ? (
+              <Link
+                to="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/profile') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                }`}
+              >
+                Profile
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/login') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                }`}
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </nav>
   );

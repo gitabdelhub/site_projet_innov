@@ -163,23 +163,23 @@ export const CoachTactics: React.FC = () => {
   }, [puzzleFen]);
 
   return (
-    <div className="min-h-screen bg-bg-dark py-8 px-4 font-sans select-none">
+    <div className="min-h-screen bg-bg-dark py-4 sm:py-8 px-2 sm:px-4 font-sans select-none">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-text-primary tracking-tight mb-2">⚔️ Tactic Trainer</h1>
-          <p className="text-text-secondary text-base max-w-xl mx-auto">
+        <div className="text-center mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight mb-2">⚔️ Tactic Trainer</h1>
+          <p className="text-text-secondary text-sm sm:text-base max-w-xl mx-auto px-4">
             Sharpen your tactical vision with interactive puzzles. Find the best moves to improve your pattern recognition.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7 flex flex-col items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+          <div className="lg:col-span-7 flex flex-col items-center order-2 lg:order-1">
             <div className="game-board-container flex flex-col items-center w-full">
               <div className="w-full flex justify-between items-center py-2 px-3 mb-2 bg-bg-card border border-gray-200/50 rounded-xl shadow-xs">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-bg-darker border border-gray-200 rounded-lg flex items-center justify-center font-bold text-lg">🎯</div>
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-bg-darker border border-gray-200 rounded-lg flex items-center justify-center font-bold text-sm sm:text-lg">🎯</div>
                   <div>
-                    <div className="font-bold text-sm text-text-primary">Puzzle #{puzzleNumber}</div>
+                    <div className="font-bold text-xs sm:text-sm text-text-primary">Puzzle #{puzzleNumber}</div>
                     <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded font-bold font-mono">
                       {puzzleStatus === 'success' ? 'Solved' : 'In Progress'}
                     </span>
@@ -187,7 +187,7 @@ export const CoachTactics: React.FC = () => {
                 </div>
               </div>
 
-              <div className="w-full flex gap-3 md:gap-4 items-stretch justify-center">
+              <div className="w-full flex gap-2 sm:gap-3 md:gap-4 items-stretch justify-center">
                 <div className="flex-1">
                   {puzzleChess && puzzleFen ? (
                     <ChessBoard
@@ -206,8 +206,8 @@ export const CoachTactics: React.FC = () => {
                       onPromoteCancel={() => {}}
                     />
                   ) : (
-                    <div className="bg-bg-card border border-gray-200 rounded-xl p-8 text-center">
-                      <p className="text-text-secondary">Loading puzzle...</p>
+                    <div className="bg-bg-card border border-gray-200 rounded-xl p-4 sm:p-8 text-center">
+                      <p className="text-text-secondary text-sm">Loading puzzle...</p>
                     </div>
                   )}
                 </div>
@@ -215,8 +215,8 @@ export const CoachTactics: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-bg-card border border-gray-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-4">
+          <div className="lg:col-span-5 space-y-3 sm:space-y-4 order-1 lg:order-2">
+            <div className="bg-bg-card border border-gray-200 rounded-2xl p-4 sm:p-5 md:p-6 shadow-sm space-y-3 sm:space-y-4">
               <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
                 <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center text-accent text-xl">🎓</div>
                 <div>
@@ -231,12 +231,12 @@ export const CoachTactics: React.FC = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {[1, 2, 3, 4, 5, 6].map((num) => (
                   <button
                     key={num}
                     onClick={() => loadPuzzle(num)}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-colors ${
+                    className={`py-2 px-2 sm:px-3 rounded-lg text-xs font-bold transition-colors ${
                       puzzleNumber === num
                         ? 'bg-accent text-white'
                         : 'bg-bg-dark text-text-primary hover:bg-bg-darker border border-gray-200'

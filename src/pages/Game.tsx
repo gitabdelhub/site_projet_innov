@@ -326,17 +326,17 @@ export const Game = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-bg-dark px-4 font-sans select-none ${isGameActive ? 'py-3 lg:py-4' : 'py-4 md:py-6'}`}>
+    <div className={`min-h-screen bg-bg-dark px-2 sm:px-4 font-sans select-none ${isGameActive ? 'py-2 sm:py-3 lg:py-4' : 'py-4 sm:py-6'}`}>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className={`flex items-center justify-between mb-4 border-b border-gray-200/50 pb-3 ${isGameActive ? 'lg:hidden' : ''}`}>
-          <Link to="/" className="text-xl font-bold text-accent flex items-center gap-2 hover:opacity-85 transition-opacity">
-            <span className="text-2xl">♞</span> Chess Hub
+        <div className={`flex items-center justify-between mb-3 sm:mb-4 border-b border-gray-200/50 pb-2 sm:pb-3 ${isGameActive ? 'lg:hidden' : ''}`}>
+          <Link to="/" className="text-lg sm:text-xl font-bold text-accent flex items-center gap-1.5 sm:gap-2 hover:opacity-85 transition-opacity">
+            <span className="text-xl sm:text-2xl">♞</span> Chess Hub
           </Link>
           {isGameActive && (
             <button
               onClick={handleExitGame}
-              className="text-sm font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-4 py-2 rounded-lg border border-gray-200/50 transition-colors"
+              className="text-xs sm:text-sm font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-gray-200/50 transition-colors"
             >
               Exit Game
             </button>
@@ -345,30 +345,30 @@ export const Game = () => {
 
         {/* 1. Main Menu Hub */}
         {gameMode === 'menu' && (
-          <div className="max-w-3xl mx-auto space-y-8 animate-fade-in py-12">
+          <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 animate-fade-in py-8 sm:py-12">
             <div className="text-center">
-              <h1 className="text-4xl font-extrabold text-text-primary tracking-tight mb-2">Play Chess</h1>
-              <p className="text-text-secondary text-base">Choose how you want to play</p>
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight mb-2">Play Chess</h1>
+              <p className="text-text-secondary text-sm sm:text-base">Choose how you want to play</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* vs Computer Card */}
-              <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div>
-                  <div className="w-12 h-12 bg-accent/15 rounded-xl flex items-center justify-center text-accent text-2xl mb-4">♟️</div>
-                  <h3 className="text-xl font-bold text-text-primary mb-2">Solo Practice</h3>
-                  <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/15 rounded-xl flex items-center justify-center text-accent text-xl sm:text-2xl mb-3 sm:mb-4">♟️</div>
+                  <h3 className="text-lg sm:text-xl font-bold text-text-primary mb-2">Solo Practice</h3>
+                  <p className="text-text-secondary text-xs sm:text-sm mb-4 sm:mb-6 leading-relaxed">
                     Sharpen your skills against a powerful chess engine. Choose your difficulty, take back moves, and improve your game.
                   </p>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-gray-100">
                   <div>
-                    <label className="block text-xs font-bold text-text-secondary uppercase mb-2">Difficulty</label>
+                    <label className="block text-[10px] sm:text-xs font-bold text-text-secondary uppercase mb-2">Difficulty</label>
                     <select
                       value={aiGame.difficulty}
                       onChange={(e) => aiGame.setDifficulty(Number(e.target.value) as any)}
-                      className="w-full bg-bg-dark border border-gray-200 text-text-primary rounded-xl px-4 py-3 font-semibold text-sm focus:border-accent focus:outline-none"
+                      className="w-full bg-bg-dark border border-gray-200 text-text-primary rounded-xl px-3 sm:px-4 py-2 sm:py-3 font-semibold text-xs sm:text-sm focus:border-accent focus:outline-none"
                     >
                       <option value={1}>Level 1 - Beginner (Elo ~800)</option>
                       <option value={2}>Level 2 - Easy (Elo ~1200)</option>
@@ -384,7 +384,7 @@ export const Game = () => {
                       setGameMode('ai');
                       soundEffects.playMove();
                     }}
-                    className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3.5 px-4 rounded-xl text-sm transition-all shadow-sm shadow-accent/25"
+                    className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-sm shadow-accent/25"
                   >
                     Start Game
                   </button>
@@ -392,16 +392,16 @@ export const Game = () => {
               </div>
 
               {/* Online Multiplayer Card */}
-              <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div>
-                  <div className="w-12 h-12 bg-accent/15 rounded-xl flex items-center justify-center text-accent text-2xl mb-4">⚔️</div>
-                  <h3 className="text-xl font-bold text-text-primary mb-2">Challenge Players</h3>
-                  <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/15 rounded-xl flex items-center justify-center text-accent text-xl sm:text-2xl mb-3 sm:mb-4">⚔️</div>
+                  <h3 className="text-lg sm:text-xl font-bold text-text-primary mb-2">Challenge Players</h3>
+                  <p className="text-text-secondary text-xs sm:text-sm mb-4 sm:mb-6 leading-relaxed">
                     Find opponents at your level instantly. Compete in ranked matches, earn your rating, and climb the leaderboard.
                   </p>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-gray-100">
                   {!configured ? (
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5">
                       <p className="text-amber-800 text-xs font-semibold mb-1 flex items-center gap-1.5">
@@ -414,22 +414,22 @@ export const Game = () => {
                   ) : !user ? (
                     <button
                       onClick={() => setAuthModalOpen(true)}
-                      className="w-full bg-bg-dark border border-gray-200 hover:bg-bg-darker text-text-primary font-bold py-3.5 px-4 rounded-xl text-sm transition-all"
+                      className="w-full bg-bg-dark border border-gray-200 hover:bg-bg-darker text-text-primary font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all"
                     >
                       Sign In / Sign Up to Play
                     </button>
                   ) : (
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center bg-bg-dark border border-gray-200 rounded-xl px-4 py-2.5 text-xs text-text-secondary font-medium">
+                      <div className="flex justify-between items-center bg-bg-dark border border-gray-200 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-[10px] sm:text-xs text-text-secondary font-medium">
                         <span>My Rating:</span>
-                        <span className="text-accent font-extrabold text-sm">{user.elo_rating} Elo</span>
+                        <span className="text-accent font-extrabold text-xs sm:text-sm">{user.elo_rating} Elo</span>
                       </div>
                       <button
                         onClick={() => {
                           setGameMode('online');
                           soundEffects.playMove();
                         }}
-                        className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3.5 px-4 rounded-xl text-sm transition-all shadow-sm shadow-accent/25"
+                        className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-sm shadow-accent/25"
                       >
                         Enter Matchmaking Lobby
                       </button>

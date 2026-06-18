@@ -33,7 +33,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   };
 
   return (
-    <div className="relative aspect-square w-full max-w-[600px] mx-auto rounded-lg overflow-hidden shadow-2xl border-4 border-bg-darker">
+    <div className="relative aspect-square w-full max-w-[400px] sm:max-w-[500px] md:max-w-[600px] mx-auto rounded-lg overflow-hidden shadow-2xl border-4 border-bg-darker">
       <div className="grid grid-cols-8 grid-rows-8 w-full h-full">
         {ranksList.map((rank) =>
           filesList.map((file) => {
