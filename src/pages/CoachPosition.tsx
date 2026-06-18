@@ -145,8 +145,6 @@ export const CoachPosition: React.FC = () => {
           <p className="text-text-secondary text-base max-w-xl mx-auto">
             Master critical positions from different openings and middlegames. Improve your positional understanding.
           </p>
-          <p className="text-xs text-gray-500 mt-2">Debug: FEN = {positionFen?.substring(0, 20)}...</p>
-          <p className="text-xs text-green-500 mt-1">Page loaded successfully!</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
