@@ -16,40 +16,40 @@ export const CoachPosition: React.FC = () => {
 
   const positions: Record<number, { fen: string; theme: string; bestMove: string; explanation: string }> = {
     1: {
-      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 3',
-      theme: 'Italian Game',
-      bestMove: 'c3',
-      explanation: 'Preparing d4 to control the center and limit Black\'s knight.'
+      fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+      theme: 'Opening',
+      bestMove: 'e5',
+      explanation: 'Playing e5 is the most principled response to e4, controlling the center.'
     },
     2: {
-      fen: 'rnbqkbnr/ppp2ppp/3p4/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq - 0 4',
-      theme: 'Pin',
-      bestMove: 'Bb5',
-      explanation: 'Pinning the knight to the king, limiting Black\'s development.'
+      fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+      theme: 'Development',
+      bestMove: 'Nf3',
+      explanation: 'Developing the knight to f3 controls the center and prepares for castling.'
     },
     3: {
-      fen: 'rnbqkbnr/pp2pppp/8/2pp4/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq - 0 4',
-      theme: 'Center Control',
-      bestMove: 'exd5',
-      explanation: 'Striking at the center immediately to gain space.'
+      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+      theme: 'Development',
+      bestMove: 'Bc4',
+      explanation: 'Developing the bishop to c4 targets the weak f7 square.'
     },
     4: {
-      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 3',
+      fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3',
       theme: 'Development',
-      bestMove: 'O-O',
-      explanation: 'Castling kingside to safety while continuing development.'
+      bestMove: 'Nf6',
+      explanation: 'Developing the knight to f6 attacks e4 and prepares for castling.'
     },
     5: {
-      fen: 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 3',
-      theme: 'Piece Activity',
-      bestMove: 'Ba4',
-      explanation: 'Retreating the bishop to maintain pressure while avoiding the trade.'
+      fen: 'r1bqk1nr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
+      theme: 'Safety',
+      bestMove: 'O-O',
+      explanation: 'Castling kingside brings the king to safety and connects the rooks.'
     },
     6: {
-      fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 4',
-      theme: 'Center Control',
-      bestMove: 'd4',
-      explanation: 'Striking in the center to gain space and open lines.'
+      fen: 'r1bqk1nr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1K1R b kq - 5 5',
+      theme: 'Safety',
+      bestMove: 'O-O',
+      explanation: 'Castling kingside is the standard response to maintain king safety.'
     }
   };
 

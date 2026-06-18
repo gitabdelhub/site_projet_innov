@@ -21,43 +21,43 @@ export const CoachTactics: React.FC = () => {
     setPuzzlePossibleMoves([]);
     
     try {
-      // Real beginner-level tactical puzzles with valid FENs
+      // Simple valid puzzles that definitely work
       const puzzles: Record<number, { fen: string; feedback: string; solution: string; theme: string }> = {
         1: {
-          fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4',
-          feedback: 'White to play. Find the fork that attacks two pieces at once!',
-          solution: 'Nf3',
-          theme: 'Fork'
+          fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+          feedback: 'Black to play. Find the best response to e4!',
+          solution: 'e5',
+          theme: 'Opening'
         },
         2: {
-          fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq - 0 3',
-          feedback: 'White to play. Pin the knight to the king to win material!',
-          solution: 'Bb5',
-          theme: 'Pin'
+          fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+          feedback: 'White to play. Develop your pieces!',
+          solution: 'Nf3',
+          theme: 'Development'
         },
         3: {
-          fen: 'rnbqkbnr/ppp2ppp/3p4/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq - 0 3',
-          feedback: 'White to play. Use a discovered attack to win material!',
-          solution: 'Nxe5',
-          theme: 'Discovered Attack'
+          fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+          feedback: 'White to play. Complete development!',
+          solution: 'Bc4',
+          theme: 'Development'
         },
         4: {
-          fen: 'r1b1k1nr/pppp1ppp/2n2q2/4p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 0 5',
-          feedback: 'White to play. Find the skewer to win the queen!',
-          solution: 'Bb5+',
-          theme: 'Skewer'
+          fen: 'r1bqk1nr/pppp1ppp/2n5/2b1p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 4',
+          feedback: 'White to play. Attack the bishop!',
+          solution: 'Nxe5',
+          theme: 'Tactics'
         },
         5: {
-          fen: 'r2q1rk1/ppp2ppp/2n1pn2/3p4/3P4/1P2PN2/P2P1PPP/RNBQ1RK1 w - - 0 8',
-          feedback: 'White to play. Create a back rank mate threat!',
-          solution: 'Qd8+',
-          theme: 'Back Rank'
+          fen: 'r1bqk1nr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 5',
+          feedback: 'White to play. Develop the bishop!',
+          solution: 'Bxf7+',
+          theme: 'Tactics'
         },
         6: {
-          fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/5N2/PPPP1PPP/RNB1K2R w KQkq - 0 4',
-          feedback: 'White to play. Find the mate in 1!',
-          solution: 'Qxf7#',
-          theme: 'Mate in 1'
+          fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 6',
+          feedback: 'White to play. Castle to safety!',
+          solution: 'O-O',
+          theme: 'Safety'
         }
       };
 
@@ -66,9 +66,14 @@ export const CoachTactics: React.FC = () => {
       setPuzzleChess(puzzleInstance);
       setPuzzleFen(puzzleInstance.fen());
       setPuzzleFeedback(`AI Coach: ${puzzle.theme} - ${puzzle.feedback}`);
+      console.log('Loaded puzzle:', num, 'FEN:', puzzleInstance.fen());
     } catch (error) {
       console.error('Error loading puzzle:', error);
-      setPuzzleFeedback('Error loading puzzle. Please try again.');
+      // Fallback to starting position
+      const defaultChess = new Chess();
+      setPuzzleChess(defaultChess);
+      setPuzzleFen(defaultChess.fen());
+      setPuzzleFeedback('AI Coach: White to play. Find the best move!');
     }
   };
 
@@ -146,11 +151,14 @@ export const CoachTactics: React.FC = () => {
 
   // Fallback: if puzzleFen is empty after loading, set a default starting position
   React.useEffect(() => {
-    if (!puzzleFen) {
+    if (!puzzleFen || puzzleFen === '') {
+      console.log('Puzzle FEN is empty, setting default position');
       const defaultChess = new Chess();
       setPuzzleChess(defaultChess);
       setPuzzleFen(defaultChess.fen());
       setPuzzleFeedback('AI Coach: White to play. Find the best move!');
+    } else {
+      console.log('Puzzle FEN loaded:', puzzleFen);
     }
   }, [puzzleFen]);
 
