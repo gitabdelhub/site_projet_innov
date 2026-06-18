@@ -170,6 +170,7 @@ export const CoachTactics: React.FC = () => {
           <p className="text-text-secondary text-base max-w-xl mx-auto">
             Sharpen your tactical vision with interactive puzzles. Find the best moves to improve your pattern recognition.
           </p>
+          <p className="text-xs text-gray-500 mt-2">Debug: FEN = {puzzleFen?.substring(0, 20)}...</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -189,21 +190,27 @@ export const CoachTactics: React.FC = () => {
 
               <div className="w-full flex gap-3 md:gap-4 items-stretch justify-center">
                 <div className="flex-1">
-                  <ChessBoard
-                    gameState={{
-                      fen: puzzleFen,
-                      turn: puzzleChess ? puzzleChess.turn() : 'w',
-                      moves: [],
-                      status: puzzleStatus === 'success' ? 'checkmate' : 'playing',
-                      selectedSquare: puzzleSelectedSquare,
-                      possibleMoves: puzzlePossibleMoves,
-                      lastMove: null
-                    }}
-                    onSquareClick={handleSquareClick}
-                    pendingPromotion={null}
-                    onPromoteSelect={() => {}}
-                    onPromoteCancel={() => {}}
-                  />
+                  {puzzleChess && puzzleFen ? (
+                    <ChessBoard
+                      gameState={{
+                        fen: puzzleFen,
+                        turn: puzzleChess.turn(),
+                        moves: [],
+                        status: puzzleStatus === 'success' ? 'checkmate' : 'playing',
+                        selectedSquare: puzzleSelectedSquare,
+                        possibleMoves: puzzlePossibleMoves,
+                        lastMove: null
+                      }}
+                      onSquareClick={handleSquareClick}
+                      pendingPromotion={null}
+                      onPromoteSelect={() => {}}
+                      onPromoteCancel={() => {}}
+                    />
+                  ) : (
+                    <div className="bg-bg-card border border-gray-200 rounded-xl p-8 text-center">
+                      <p className="text-text-secondary">Loading puzzle...</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
