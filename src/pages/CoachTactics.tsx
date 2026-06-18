@@ -171,6 +171,7 @@ export const CoachTactics: React.FC = () => {
             Sharpen your tactical vision with interactive puzzles. Find the best moves to improve your pattern recognition.
           </p>
           <p className="text-xs text-gray-500 mt-2">Debug: FEN = {puzzleFen?.substring(0, 20)}...</p>
+          <p className="text-xs text-green-500 mt-1">Page loaded successfully!</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
