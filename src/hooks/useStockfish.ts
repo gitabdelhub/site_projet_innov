@@ -15,8 +15,8 @@ export const useStockfish = (): StockfishHook => {
   const resolveMoveRef = useRef<((move: string | null) => void) | null>(null);
 
   useEffect(() => {
-    // Create Stockfish worker from CDN
-    const stockfishUrl = 'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js';
+    // Create Stockfish worker from local file
+    const stockfishUrl = '/stockfish.js';
     const worker = new Worker(stockfishUrl);
 
     workerRef.current = worker;
