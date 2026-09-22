@@ -1,6 +1,16 @@
 import { Link } from 'react-router-dom';
+import { PUZZLES, THEMES, getPuzzlesByTheme } from '../data/puzzles';
+import { useProgress, resetProgress } from '../lib/progress';
 
 export const Coach: React.FC = () => {
+  const progress = useProgress();
+  const themesMastered = THEMES.filter((t) => getPuzzlesByTheme(t.id).every((p) => progress.solvedPuzzles.includes(p.id))).length;
+  const stats = [
+    { value: progress.gamesAnalyzed, label: 'Games Analyzed' },
+    { value: `${progress.solvedPuzzles.length}/${PUZZLES.length}`, label: 'Puzzles Solved' },
+    { value: `${themesMastered}/${THEMES.length}`, label: 'Themes Mastered' },
+    { value: progress.solvedPositions.length, label: 'Positions Mastered' },
+  ];
   const coachSections = [
     {
       path: '/coach/elo',
@@ -29,8 +39,8 @@ export const Coach: React.FC = () => {
     {
       path: '/coach/themes',
       icon: '🧩',
-      title: 'Theme Analyzer',
-      description: 'Focus on specific chess themes to improve your understanding. Each theme contains targeted exercises.',
+      title: 'Theme Trainer',
+      description: 'Train one tactical theme at a time: back rank, forks, pins, mating nets, sacrifices and more.',
       color: 'from-purple-500/10 to-purple-600/5',
       borderColor: 'border-purple-500/20'
     }
@@ -76,23 +86,16 @@ export const Coach: React.FC = () => {
         <div className="mt-12 bg-bg-card border border-gray-200/80 rounded-2xl p-6 shadow-sm">
           <h3 className="font-bold text-text-primary text-lg mb-4">📈 Your Progress</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Games Analyzed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Puzzles Solved</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Themes Mastered</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Training Hours</div>
-            </div>
+            {stats.map((s) => (
+              <div key={s.label} className="text-center">
+                <div className="text-3xl font-bold text-accent mb-1">{s.value}</div>
+                <div className="text-xs text-text-secondary">{s.label}</div>
+              </div>
+            ))}
           </div>
+          <button onClick={resetProgress} className="mt-4 text-[11px] text-text-secondary hover:text-danger underline">
+            Reset progress
+          </button>
         </div>
       </div>
     </div>

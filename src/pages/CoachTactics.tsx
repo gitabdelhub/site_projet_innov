@@ -1,175 +1,215 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { soundEffects } from '../utils/soundEffects';
+import { PUZZLES, THEMES, type Puzzle, type ThemeId } from '../data/puzzles';
+import { updateProgress, useProgress } from '../lib/progress';
+
+type PuzzleStatus = 'playing' | 'wrong' | 'success' | 'revealed';
+
+const buildStart = (puzzle: Puzzle) => {
+  const chess = new Chess(puzzle.fen);
+  if (puzzle.moves) {
+    chess.reset();
+    puzzle.moves.split(' ').forEach((m) => chess.move(m));
+  }
+  const history = chess.history({ verbose: true });
+  const last = history[history.length - 1];
+  return { fen: chess.fen(), lastMove: last ? { from: last.from, to: last.to } : null };
+};
 
 export const CoachTactics: React.FC = () => {
-  const [puzzleChess, setPuzzleChess] = useState<Chess | null>(null);
-  const [puzzleFen, setPuzzleFen] = useState('');
-  const [puzzleSelectedSquare, setPuzzleSelectedSquare] = useState<string | null>(null);
-  const [puzzlePossibleMoves, setPuzzlePossibleMoves] = useState<string[]>([]);
-  const [puzzleFeedback, setPuzzleFeedback] = useState<string>('White to play. Can you find the winning tactical sequence?');
-  const [puzzleStatus, setPuzzleStatus] = useState<'playing' | 'success' | 'failed'>('playing');
-  const [puzzleNumber, setPuzzleNumber] = useState(1);
-  const [solvedCount, setSolvedCount] = useState(0);
-  const [streak, setStreak] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const themeFilter = (searchParams.get('theme') as ThemeId | null) ?? null;
+  const puzzles = useMemo(() => (themeFilter ? PUZZLES.filter((p) => p.theme === themeFilter) : PUZZLES), [themeFilter]);
 
-  const loadPuzzle = (num: number) => {
-    setPuzzleNumber(num);
-    setPuzzleStatus('playing');
-    setPuzzleSelectedSquare(null);
-    setPuzzlePossibleMoves([]);
-    
-    try {
-      // Simple valid puzzles that definitely work
-      const puzzles: Record<number, { fen: string; feedback: string; solution: string; theme: string }> = {
-        1: {
-          fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
-          feedback: 'Black to play. Find the best response to e4!',
-          solution: 'e5',
-          theme: 'Opening'
-        },
-        2: {
-          fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
-          feedback: 'White to play. Develop your pieces!',
-          solution: 'Nf3',
-          theme: 'Development'
-        },
-        3: {
-          fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
-          feedback: 'White to play. Complete development!',
-          solution: 'Bc4',
-          theme: 'Development'
-        },
-        4: {
-          fen: 'r1bqk1nr/pppp1ppp/2n5/2b1p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 4',
-          feedback: 'White to play. Attack the bishop!',
-          solution: 'Nxe5',
-          theme: 'Tactics'
-        },
-        5: {
-          fen: 'r1bqk1nr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 5',
-          feedback: 'White to play. Develop the bishop!',
-          solution: 'Bxf7+',
-          theme: 'Tactics'
-        },
-        6: {
-          fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 6',
-          feedback: 'White to play. Castle to safety!',
-          solution: 'O-O',
-          theme: 'Safety'
-        }
-      };
+  const [index, setIndex] = useState(0);
+  const puzzle = puzzles[Math.min(index, puzzles.length - 1)];
 
-      const puzzle = puzzles[num] || puzzles[1];
-      const puzzleInstance = new Chess(puzzle.fen);
-      setPuzzleChess(puzzleInstance);
-      setPuzzleFen(puzzleInstance.fen());
-      setPuzzleFeedback(`AI Coach: ${puzzle.theme} - ${puzzle.feedback}`);
-      console.log('Loaded puzzle:', num, 'FEN:', puzzleInstance.fen());
-    } catch (error) {
-      console.error('Error loading puzzle:', error);
-      // Fallback to starting position
-      const defaultChess = new Chess();
-      setPuzzleChess(defaultChess);
-      setPuzzleFen(defaultChess.fen());
-      setPuzzleFeedback('AI Coach: White to play. Find the best move!');
-    }
+  const chessRef = useRef(new Chess());
+  const [fen, setFen] = useState('');
+  const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
+  const [step, setStep] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [possible, setPossible] = useState<string[]>([]);
+  const [status, setStatus] = useState<PuzzleStatus>('playing');
+  const [feedback, setFeedback] = useState('');
+  const [showHint, setShowHint] = useState(false);
+  const [hadError, setHadError] = useState(false);
+  const timers = useRef<number[]>([]);
+  const progress = useProgress();
+
+  const playerColor = useMemo(() => new Chess(buildStart(puzzle).fen).turn(), [puzzle]);
+  const theme = THEMES.find((t) => t.id === puzzle.theme)!;
+
+  const clearTimers = () => {
+    timers.current.forEach((t) => clearTimeout(t));
+    timers.current = [];
   };
 
-  const handleSquareClick = (square: string) => {
-    if (!puzzleChess || puzzleStatus !== 'playing') return;
+  const loadPuzzle = () => {
+    clearTimers();
+    const start = buildStart(puzzle);
+    chessRef.current = new Chess(start.fen);
+    setFen(start.fen);
+    setLastMove(start.lastMove);
+    setStep(0);
+    setSelected(null);
+    setPossible([]);
+    setStatus('playing');
+    setShowHint(false);
+    setHadError(false);
+    setFeedback(`${playerColor === 'w' ? 'White' : 'Black'} to play. ${puzzle.solution.length > 1 ? 'Find the whole combination!' : 'Find the best move!'}`);
+  };
 
-    const selected = puzzleSelectedSquare;
+  useEffect(loadPuzzle, [puzzle]);
+  useEffect(() => clearTimers, []);
+  useEffect(() => setIndex(0), [themeFilter]);
 
-    if (selected === square) {
-      setPuzzleSelectedSquare(null);
-      setPuzzlePossibleMoves([]);
+  const applyMove = (san: string) => {
+    const move = chessRef.current.move(san);
+    setFen(chessRef.current.fen());
+    setLastMove({ from: move.from, to: move.to });
+    if (chessRef.current.isCheckmate()) soundEffects.playCheck();
+    else if (move.captured) soundEffects.playCapture();
+    else soundEffects.playMove();
+    return move;
+  };
+
+  const finishSuccess = () => {
+    setStatus('success');
+    setFeedback(`🏆 Solved! ${puzzle.explanation}`);
+    soundEffects.playSuccess();
+    updateProgress((p) => {
+      const firstSolve = !p.solvedPuzzles.includes(puzzle.id);
+      const streak = hadError ? 0 : p.streak + 1;
+      return {
+        ...p,
+        solvedPuzzles: firstSolve ? [...p.solvedPuzzles, puzzle.id] : p.solvedPuzzles,
+        puzzleAttempts: p.puzzleAttempts + 1,
+        puzzleFirstTry: p.puzzleFirstTry + (hadError ? 0 : 1),
+        streak,
+        bestStreak: Math.max(p.bestStreak, streak),
+      };
+    });
+  };
+
+  const tryMove = (from: string, to: string) => {
+    const chess = chessRef.current;
+    const expected = puzzle.solution[step];
+    let move;
+    try {
+      move = chess.move({ from, to, promotion: 'q' });
+    } catch {
+      return;
+    }
+    // Accept the expected move, or any other checkmate when a mate is expected
+    const correct = move.san === expected || (expected.includes('#') && chess.isCheckmate());
+    setSelected(null);
+    setPossible([]);
+
+    if (!correct) {
+      setFen(chess.fen());
+      setLastMove({ from, to });
+      setStatus('wrong');
+      setHadError(true);
+      setFeedback(`❌ ${move.san} is not the best move. Try again!`);
+      soundEffects.playError();
+      if (!hadError) updateProgress((p) => ({ ...p, streak: 0 }));
+      timers.current.push(window.setTimeout(() => {
+        chess.undo();
+        const history = chess.history({ verbose: true });
+        const last = history[history.length - 1];
+        setFen(chess.fen());
+        setLastMove(last ? { from: last.from, to: last.to } : buildStart(puzzle).lastMove);
+        setStatus('playing');
+      }, 1000));
       return;
     }
 
-    if (selected) {
-      const moves = puzzleChess.moves({ square: selected as any, verbose: true }) as any[];
-      const validMove = moves.find(m => m.to === square);
-
-      if (validMove) {
-        const moveResult = puzzleChess.move({ from: selected, to: square });
-        setPuzzleFen(puzzleChess.fen());
-        setPuzzleSelectedSquare(null);
-        setPuzzlePossibleMoves([]);
-        soundEffects.playMove();
-
-        // Get the current puzzle solution
-        const puzzles: Record<number, { solution: string }> = {
-          1: { solution: 'Nf3' },
-          2: { solution: 'Bb5' },
-          3: { solution: 'Nxe5' },
-          4: { solution: 'Bb5+' },
-          5: { solution: 'Qd8+' },
-          6: { solution: 'Qxf7#' }
-        };
-
-        const currentSolution = puzzles[puzzleNumber]?.solution;
-        
-        // Check if the move matches the solution (either SAN or destination)
-        const isCorrect = moveResult.san === currentSolution || 
-                         validMove.to === currentSolution || 
-                         moveResult.san.includes(currentSolution);
-
-        if (isCorrect) {
-          setPuzzleStatus('success');
-          setSolvedCount(prev => prev + 1);
-          setStreak(prev => prev + 1);
-          setPuzzleFeedback('🏆 Excellent! Correct tactical solution found!');
-          soundEffects.playSuccess();
-        } else {
-          setStreak(0);
-          setPuzzleFeedback('❌ Not quite right. Think about the tactical theme and try again!');
-          soundEffects.playError();
-          setTimeout(() => {
-            loadPuzzle(puzzleNumber);
-          }, 1500);
-        }
-        return;
-      }
+    setFen(chess.fen());
+    setLastMove({ from, to });
+    soundEffects.playMove();
+    const nextStep = step + 1;
+    if (nextStep >= puzzle.solution.length) {
+      setStep(nextStep);
+      finishSuccess();
+      return;
     }
+    // Opponent reply
+    setFeedback('✅ Correct! Keep going…');
+    setStep(nextStep + 1);
+    timers.current.push(window.setTimeout(() => {
+      applyMove(puzzle.solution[nextStep]);
+      if (nextStep + 1 >= puzzle.solution.length) finishSuccess();
+    }, 600));
+  };
 
-    const piece = puzzleChess.get(square as any);
-    if (piece && piece.color === puzzleChess.turn()) {
-      setPuzzleSelectedSquare(square);
-      const moves = puzzleChess.moves({ square: square as any, verbose: true }) as any[];
-      setPuzzlePossibleMoves(moves.map(m => m.to));
+  const handleSquareClick = (square: string) => {
+    if (status !== 'playing') return;
+    const chess = chessRef.current;
+    if (chess.turn() !== playerColor) return;
+
+    if (selected && possible.includes(square)) {
+      tryMove(selected, square);
+      return;
+    }
+    const piece = chess.get(square as any);
+    if (piece && piece.color === playerColor && square !== selected) {
+      setSelected(square);
+      setPossible(chess.moves({ square: square as any, verbose: true }).map((m) => m.to));
     } else {
-      setPuzzleSelectedSquare(null);
-      setPuzzlePossibleMoves([]);
+      setSelected(null);
+      setPossible([]);
     }
   };
 
-  React.useEffect(() => {
-    loadPuzzle(1);
-  }, []);
+  const revealSolution = () => {
+    clearTimers();
+    const start = buildStart(puzzle);
+    chessRef.current = new Chess(start.fen);
+    setFen(start.fen);
+    setLastMove(start.lastMove);
+    setStatus('revealed');
+    setFeedback(`💡 Solution: ${puzzle.solution.join(' ')} — ${puzzle.explanation}`);
+    updateProgress((p) => ({ ...p, streak: 0, puzzleAttempts: p.puzzleAttempts + 1 }));
+    puzzle.solution.forEach((san, i) => {
+      timers.current.push(window.setTimeout(() => applyMove(san), 700 * (i + 1)));
+    });
+  };
 
-  // Fallback: if puzzleFen is empty after loading, set a default starting position
-  React.useEffect(() => {
-    if (!puzzleFen || puzzleFen === '') {
-      console.log('Puzzle FEN is empty, setting default position');
-      const defaultChess = new Chess();
-      setPuzzleChess(defaultChess);
-      setPuzzleFen(defaultChess.fen());
-      setPuzzleFeedback('AI Coach: White to play. Find the best move!');
-    } else {
-      console.log('Puzzle FEN loaded:', puzzleFen);
-    }
-  }, [puzzleFen]);
+  const nextPuzzle = () => setIndex((i) => (i + 1) % puzzles.length);
+
+  const accuracy = progress.puzzleAttempts > 0 ? Math.round((progress.puzzleFirstTry / progress.puzzleAttempts) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-bg-dark py-4 sm:py-8 px-2 sm:px-4 font-sans select-none">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-4 sm:mb-8">
+        <div className="text-center mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight mb-2">⚔️ Tactic Trainer</h1>
           <p className="text-text-secondary text-sm sm:text-base max-w-xl mx-auto px-4">
-            Sharpen your tactical vision with interactive puzzles. Find the best moves to improve your pattern recognition.
+            {PUZZLES.length} puzzles verified by Stockfish. Find the winning move — or the whole combination.
           </p>
+        </div>
+
+        {/* Theme filter */}
+        <div className="flex flex-wrap justify-center gap-2 mb-4 sm:mb-6">
+          <button
+            onClick={() => setSearchParams({})}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${!themeFilter ? 'bg-accent text-white border-accent' : 'bg-bg-card text-text-primary border-gray-200 hover:bg-bg-darker'}`}
+          >
+            All themes
+          </button>
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSearchParams({ theme: t.id })}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${themeFilter === t.id ? 'bg-accent text-white border-accent' : 'bg-bg-card text-text-primary border-gray-200 hover:bg-bg-darker'}`}
+            >
+              {t.icon} {t.name}
+            </button>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
@@ -177,41 +217,35 @@ export const CoachTactics: React.FC = () => {
             <div className="game-board-container flex flex-col items-center w-full">
               <div className="w-full flex justify-between items-center py-2 px-3 mb-2 bg-bg-card border border-gray-200/50 rounded-xl shadow-xs">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-bg-darker border border-gray-200 rounded-lg flex items-center justify-center font-bold text-sm sm:text-lg">🎯</div>
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-bg-darker border border-gray-200 rounded-lg flex items-center justify-center font-bold text-sm sm:text-lg">{theme.icon}</div>
                   <div>
-                    <div className="font-bold text-xs sm:text-sm text-text-primary">Puzzle #{puzzleNumber}</div>
-                    <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded font-bold font-mono">
-                      {puzzleStatus === 'success' ? 'Solved' : 'In Progress'}
+                    <div className="font-bold text-xs sm:text-sm text-text-primary">{puzzle.title}</div>
+                    <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded font-bold">
+                      {theme.name} · {playerColor === 'w' ? 'White' : 'Black'} to move
                     </span>
                   </div>
                 </div>
+                {progress.solvedPuzzles.includes(puzzle.id) && <span className="text-xs font-bold text-green-600">✓ Solved before</span>}
               </div>
 
-              <div className="w-full flex gap-2 sm:gap-3 md:gap-4 items-stretch justify-center">
-                <div className="flex-1">
-                  {puzzleChess && puzzleFen ? (
-                    <ChessBoard
-                      gameState={{
-                        fen: puzzleFen,
-                        turn: puzzleChess.turn(),
-                        moves: [],
-                        status: puzzleStatus === 'success' ? 'checkmate' : 'playing',
-                        selectedSquare: puzzleSelectedSquare,
-                        possibleMoves: puzzlePossibleMoves,
-                        lastMove: null
-                      }}
-                      onSquareClick={handleSquareClick}
-                      pendingPromotion={null}
-                      onPromoteSelect={() => {}}
-                      onPromoteCancel={() => {}}
-                    />
-                  ) : (
-                    <div className="bg-bg-card border border-gray-200 rounded-xl p-4 sm:p-8 text-center">
-                      <p className="text-text-secondary text-sm">Loading puzzle...</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {fen && (
+                <ChessBoard
+                  gameState={{
+                    fen,
+                    turn: chessRef.current.turn(),
+                    moves: [],
+                    status: 'playing',
+                    selectedSquare: selected,
+                    possibleMoves: possible,
+                    lastMove,
+                  }}
+                  onSquareClick={handleSquareClick}
+                  pendingPromotion={null}
+                  onPromoteSelect={() => {}}
+                  onPromoteCancel={() => {}}
+                  flipped={playerColor === 'b'}
+                />
+              )}
             </div>
           </div>
 
@@ -221,55 +255,68 @@ export const CoachTactics: React.FC = () => {
                 <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center text-accent text-xl">🎓</div>
                 <div>
                   <h4 className="font-bold text-text-primary">AI Coach</h4>
-                  <p className="text-[10px] text-text-secondary font-bold uppercase">Tactical Training</p>
+                  <p className="text-[10px] text-text-secondary font-bold uppercase">Puzzle {index + 1} / {puzzles.length}</p>
                 </div>
               </div>
 
-              <div className="bg-bg-darker/40 border border-gray-100 rounded-xl p-4">
-                <p className="text-sm text-text-primary leading-relaxed font-medium">
-                  {puzzleFeedback}
-                </p>
+              <div className={`bg-bg-darker/40 border rounded-xl p-4 ${status === 'success' ? 'border-green-500/40' : status === 'wrong' ? 'border-red-500/40' : 'border-gray-100'}`}>
+                <p className="text-sm text-text-primary leading-relaxed font-medium">{feedback}</p>
+                {showHint && status === 'playing' && <p className="text-xs text-text-secondary mt-2">💡 {puzzle.hint}</p>}
               </div>
 
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {[1, 2, 3, 4, 5, 6].map((num) => (
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setShowHint(true)}
+                  disabled={status !== 'playing' || showHint}
+                  className="bg-bg-dark hover:bg-bg-darker text-text-primary font-bold py-2 rounded-xl text-xs border border-gray-200 transition-colors disabled:opacity-40"
+                >
+                  Hint
+                </button>
+                <button
+                  onClick={revealSolution}
+                  disabled={status === 'success' || status === 'revealed'}
+                  className="bg-bg-dark hover:bg-bg-darker text-text-primary font-bold py-2 rounded-xl text-xs border border-gray-200 transition-colors disabled:opacity-40"
+                >
+                  Solution
+                </button>
+                <button onClick={loadPuzzle} className="bg-bg-dark hover:bg-bg-darker text-text-primary font-bold py-2 rounded-xl text-xs border border-gray-200 transition-colors">
+                  Retry
+                </button>
+              </div>
+              <button
+                onClick={nextPuzzle}
+                className={`w-full font-bold py-2.5 px-4 rounded-xl text-sm transition-colors ${status === 'success' || status === 'revealed' ? 'bg-accent hover:bg-accent-hover text-white' : 'bg-bg-dark hover:bg-bg-darker text-text-primary border border-gray-200'}`}
+              >
+                Next puzzle →
+              </button>
+
+              <div className="grid grid-cols-6 gap-1.5 pt-1">
+                {puzzles.map((p, i) => (
                   <button
-                    key={num}
-                    onClick={() => loadPuzzle(num)}
-                    className={`py-2 px-2 sm:px-3 rounded-lg text-xs font-bold transition-colors ${
-                      puzzleNumber === num
-                        ? 'bg-accent text-white'
-                        : 'bg-bg-dark text-text-primary hover:bg-bg-darker border border-gray-200'
+                    key={p.id}
+                    onClick={() => setIndex(i)}
+                    title={p.title}
+                    className={`py-1.5 rounded-lg text-[11px] font-bold transition-colors border ${
+                      i === index
+                        ? 'bg-accent text-white border-accent'
+                        : progress.solvedPuzzles.includes(p.id)
+                          ? 'bg-green-500/10 text-green-700 border-green-500/30'
+                          : 'bg-bg-dark text-text-primary border-gray-200 hover:bg-bg-darker'
                     }`}
                   >
-                    #{num}
+                    {progress.solvedPuzzles.includes(p.id) && i !== index ? '✓' : i + 1}
                   </button>
                 ))}
               </div>
-
-              <button
-                onClick={() => loadPuzzle(puzzleNumber)}
-                className="w-full bg-bg-dark hover:bg-bg-darker text-text-primary font-bold py-2.5 px-4 rounded-xl text-xs border border-gray-200 transition-colors"
-              >
-                Reset Puzzle
-              </button>
             </div>
 
             <div className="bg-bg-card border border-gray-200 rounded-2xl p-5 shadow-sm">
               <h4 className="font-bold text-text-primary mb-3">📊 Statistics</h4>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-secondary">Puzzles Solved</span>
-                  <span className="text-text-primary font-bold">{solvedCount}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-secondary">Accuracy</span>
-                  <span className="text-text-primary font-bold">{solvedCount > 0 ? '100%' : '0%'}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-secondary">Current Streak</span>
-                  <span className="text-text-primary font-bold">{streak} 🔥</span>
-                </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between"><span className="text-text-secondary">Puzzles solved</span><span className="text-text-primary font-bold">{progress.solvedPuzzles.length} / {PUZZLES.length}</span></div>
+                <div className="flex justify-between"><span className="text-text-secondary">First-try accuracy</span><span className="text-text-primary font-bold">{accuracy}%</span></div>
+                <div className="flex justify-between"><span className="text-text-secondary">Current streak</span><span className="text-text-primary font-bold">{progress.streak} 🔥</span></div>
+                <div className="flex justify-between"><span className="text-text-secondary">Best streak</span><span className="text-text-primary font-bold">{progress.bestStreak}</span></div>
               </div>
             </div>
           </div>
