@@ -20,6 +20,20 @@ export type GameStatus = 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw
 
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 
+export type GameEndReason =
+  | 'checkmate'
+  | 'stalemate'
+  | 'threefold'
+  | 'insufficient'
+  | 'fifty-moves'
+  | 'timeout'
+  | 'resignation';
+
+export interface GameResult {
+  winner: PieceColor | null; // null = draw
+  reason: GameEndReason;
+}
+
 export interface GameState {
   fen: string;
   turn: PieceColor;

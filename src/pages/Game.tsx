@@ -14,6 +14,18 @@ import { useAuth } from '../hooks/useAuth';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { soundEffects } from '../utils/soundEffects';
 import { renderPieceSVG } from '../components/PieceSVGs';
+import { LEVEL_SETTINGS } from '../hooks/useStockfish';
+import type { GameResult } from '../types/chess';
+
+const REASON_LABELS: Record<GameResult['reason'], string> = {
+  checkmate: 'by checkmate',
+  stalemate: 'by stalemate',
+  threefold: 'by threefold repetition',
+  insufficient: 'by insufficient material',
+  'fifty-moves': 'by the 50-move rule',
+  timeout: 'on time',
+  resignation: 'by resignation',
+};
 
 // Helper to calculate captured pieces from FEN
 type PieceKey = 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
@@ -173,8 +185,10 @@ export const Game = () => {
 
   // Clocks ticking effect
   useEffect(() => {
-    if (!isGameActive || status !== 'playing' && status !== 'check') return;
-    if (timeWinner) return;
+    if (!isGameActive || (status !== 'playing' && status !== 'check')) return;
+    if (timeWinner || (isAiMode && aiGame.result)) return;
+    // Clock starts after White's first move
+    if (moves.length === 0) return;
 
     const timer = setInterval(() => {
       if (turn === 'w') {
@@ -182,6 +196,7 @@ export const Game = () => {
           if (t <= 1) {
             clearInterval(timer);
             setTimeWinner('Black wins on time');
+            if (isAiMode) aiGame.declareResult({ winner: 'b', reason: 'timeout' });
             soundEffects.playGameOver(userColor === 'b');
             return 0;
           }
@@ -192,6 +207,7 @@ export const Game = () => {
           if (t <= 1) {
             clearInterval(timer);
             setTimeWinner('White wins on time');
+            if (isAiMode) aiGame.declareResult({ winner: 'w', reason: 'timeout' });
             soundEffects.playGameOver(userColor === 'w');
             return 0;
           }
@@ -201,7 +217,8 @@ export const Game = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isGameActive, turn, status, timeWinner, userColor]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGameActive, turn, status, timeWinner, userColor, isAiMode, aiGame.result, moves.length > 0]);
 
   // Keyboard shortcuts for rewinder
   useEffect(() => {
@@ -237,6 +254,15 @@ export const Game = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isRewindMode, rewindIndex, moves.length]);
 
+  function getOnlineDrawReason(): GameResult['reason'] | null {
+    const c = mpGame.chess;
+    if (c.isStalemate()) return 'stalemate';
+    if (c.isInsufficientMaterial()) return 'insufficient';
+    if (c.isThreefoldRepetition()) return 'threefold';
+    if (c.isDraw()) return 'fifty-moves';
+    return null;
+  }
+
   // Reset clocks on new game
   const resetClocks = () => {
     setWhiteTime(600);
@@ -246,6 +272,7 @@ export const Game = () => {
 
   // Intercept square click for Pawn Promotion Modal
   const handleSquareClick = (square: string) => {
+    if (timeWinner) return;
     if (isOnlineMode) {
       // Multiplayer move intercepting
       if (status !== 'playing' && status !== 'check') return;
@@ -316,6 +343,24 @@ export const Game = () => {
   // Captured pieces details
   const { whiteCaptured, blackCaptured, materialAdvantage } = getCapturedPieces(displayFen);
 
+  // Game over summary (AI mode uses the engine result, online uses the stored game)
+  const aiResult = isAiMode ? aiGame.result : null;
+  const onlineResult: GameResult | null = isOnlineMode && mpGame.game?.status === 'completed'
+    ? {
+        winner: mpGame.game.winner ? (mpGame.game.winner === mpGame.game.white_player_id ? 'w' : 'b') : null,
+        reason: mpGame.chess.isCheckmate() ? 'checkmate' : (getOnlineDrawReason() ?? 'resignation'),
+      }
+    : null;
+  const finalResult = aiResult ?? onlineResult ?? (timeWinner ? { winner: timeWinner.startsWith('White') ? 'w' : 'b', reason: 'timeout' } as GameResult : null);
+  const gameOverText = finalResult
+    ? (finalResult.winner === null
+        ? `🤝 Draw ${REASON_LABELS[finalResult.reason]}`
+        : `${finalResult.winner === userColor ? '🏆 You win' : '💀 You lose'} ${REASON_LABELS[finalResult.reason]}`)
+    : null;
+  const [dismissedResult, setDismissedResult] = useState<string | null>(null);
+  const resultKey = finalResult ? `${finalResult.winner}-${finalResult.reason}-${moves.length}` : null;
+  const showGameOverModal = !!finalResult && dismissedResult !== resultKey && !isRewindMode;
+
   // Return to hub
   const handleExitGame = () => {
     if (isOnlineMode) {
@@ -370,11 +415,11 @@ export const Game = () => {
                       onChange={(e) => aiGame.setDifficulty(Number(e.target.value) as any)}
                       className="w-full bg-bg-dark border border-gray-200 text-text-primary rounded-xl px-3 sm:px-4 py-2 sm:py-3 font-semibold text-xs sm:text-sm focus:border-accent focus:outline-none"
                     >
-                      <option value={1}>Level 1 - Beginner (Elo ~800)</option>
-                      <option value={2}>Level 2 - Easy (Elo ~1200)</option>
-                      <option value={3}>Level 3 - Medium (Elo ~1600)</option>
-                      <option value={4}>Level 4 - Hard (Elo ~2000)</option>
-                      <option value={5}>Level 5 - Expert (Elo ~2400)</option>
+                      {([1, 2, 3, 4, 5] as const).map((lvl) => (
+                        <option key={lvl} value={lvl}>
+                          Level {lvl} - {LEVEL_SETTINGS[lvl].label} (Elo ~{LEVEL_SETTINGS[lvl].elo})
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <button
@@ -508,7 +553,7 @@ export const Game = () => {
                       <div className="font-bold text-sm text-text-primary flex items-center gap-1.5">
                         {isAiMode ? `Engine · Level ${aiGame.difficulty}` : (isMpWhite ? matchmaking.currentGame?.black_player_username : matchmaking.currentGame?.white_player_username)}
                         <span className="text-[10px] bg-bg-darker text-text-secondary px-1.5 py-0.5 rounded font-bold font-mono">
-                          {isAiMode ? `~${800 + aiGame.difficulty * 400}` : '1200'}
+                          {isAiMode ? `~${LEVEL_SETTINGS[aiGame.difficulty].elo}` : '—'}
                         </span>
                       </div>
                       {/* Captured pieces by opponent */}
@@ -537,11 +582,51 @@ export const Game = () => {
                 {/* Board & Evaluation Bar side-by-side */}
                 <div className="w-full flex gap-3 md:gap-4 items-stretch justify-center">
                   <div className="hidden md:flex">
-                    <EvaluationBar fen={fen} />
+                    <EvaluationBar fen={displayFen} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
+                    {showGameOverModal && (
+                      <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px] rounded-lg animate-fade-in">
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 w-[85%] max-w-[320px] text-center border border-gray-100">
+                          <div className="text-4xl mb-2">
+                            {finalResult?.winner === null ? '🤝' : finalResult?.winner === userColor ? '🏆' : '💀'}
+                          </div>
+                          <h3 className="text-xl font-extrabold text-gray-800 mb-1">
+                            {finalResult?.winner === null ? 'Draw' : finalResult?.winner === userColor ? 'You win!' : 'You lose'}
+                          </h3>
+                          <p className="text-sm text-gray-500 mb-5">
+                            {finalResult?.winner === null
+                              ? `Game drawn ${finalResult ? REASON_LABELS[finalResult.reason] : ''}`
+                              : `${finalResult?.winner === 'w' ? 'White' : 'Black'} wins ${finalResult ? REASON_LABELS[finalResult.reason] : ''}`}
+                            {' · '}{Math.ceil(moves.length / 2)} moves
+                          </p>
+                          <div className="space-y-2">
+                            {isAiMode && (
+                              <button
+                                onClick={() => { aiGame.newGame(); resetClocks(); setIsRewindMode(false); setRewindIndex(null); }}
+                                className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-colors"
+                              >
+                                Play again
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { setDismissedResult(resultKey); setActiveTab('analysis'); setIsRewindMode(true); setRewindIndex(0); }}
+                              className="w-full bg-bg-darker hover:bg-bg-dark text-text-primary font-bold py-2.5 px-4 rounded-xl text-sm border border-gray-200 transition-colors"
+                            >
+                              Review the game
+                            </button>
+                            <button
+                              onClick={() => setDismissedResult(resultKey)}
+                              className="text-xs text-gray-500 hover:text-gray-800 underline font-medium"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <ChessBoard
-                      gameState={isAiMode ? aiGame.gameState : {
+                      gameState={isAiMode && !(isRewindMode && rewindIndex !== null) ? aiGame.gameState : {
                         fen: displayFen,
                         turn: isRewindMode && rewindIndex !== null ? (new Chess(displayFen).turn()) : turn,
                         moves: [],
@@ -662,12 +747,14 @@ export const Game = () => {
                       <p className={`text-base font-extrabold ${
                         status === 'checkmate' ? 'text-danger' : status === 'check' ? 'text-amber-500' : 'text-text-primary'
                       }`}>
-                        {status === 'check' && '⚠️ Check!'}
-                        {status === 'checkmate' && '🏆 Checkmate!'}
-                        {status === 'draw' && '🤝 Draw'}
-                        {status === 'stalemate' && '🤝 Stalemate (Draw)'}
-                        {status === 'playing' && (isAiMode && aiGame.isComputerThinking ? '🤖 Computer thinking...' : 'Your turn')}
-                        {timeWinner && `⌛ ${timeWinner}`}
+                        {gameOverText ? gameOverText : (
+                          <>
+                            {status === 'check' && '⚠️ Check! '}
+                            {isAiMode
+                              ? (turn === aiGame.playerColor ? 'Your turn' : '🤖 Computer thinking...')
+                              : (status === 'playing' || status === 'check') && ((turn === userColor) ? 'Your turn' : "Opponent's turn")}
+                          </>
+                        )}
                       </p>
                     </div>
 
@@ -677,6 +764,8 @@ export const Game = () => {
                         onClick={() => {
                           if (isAiMode) {
                             aiGame.newGame();
+                            setIsRewindMode(false);
+                            setRewindIndex(null);
                           } else {
                             // Multiplayer resign / draw is potential
                           }
@@ -689,6 +778,7 @@ export const Game = () => {
                       {isAiMode ? (
                         <button
                           onClick={aiGame.undoMove}
+                          disabled={!!aiGame.result || moves.length === 0}
                           className="bg-bg-darker hover:bg-bg-card text-text-primary font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors text-xs"
                         >
                           Undo Move
@@ -703,6 +793,15 @@ export const Game = () => {
                       )}
                     </div>
                   </div>
+
+                  {isAiMode && !aiGame.result && moves.length > 0 && (
+                    <button
+                      onClick={() => aiGame.declareResult({ winner: 'b', reason: 'resignation' })}
+                      className="w-full -mt-2 bg-danger/10 hover:bg-danger/20 text-danger font-bold py-2 px-4 rounded-xl text-xs border border-danger/20 transition-colors"
+                    >
+                      🏳️ Resign
+                    </button>
+                  )}
 
                   {/* Moves History */}
                   <div className="bg-bg-card border border-gray-200/80 rounded-xl p-4 shadow-sm flex-1 overflow-hidden flex flex-col">
