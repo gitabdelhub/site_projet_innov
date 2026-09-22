@@ -21,7 +21,8 @@ interface GameRewinderProps {
   totalMoves: number;
 }
 
-const ANALYSIS_DEPTH = 10;
+const ANALYSIS_DEPTH = 12;
+const ANALYSIS_MOVETIME = 250; // ms per position, keeps a 40-move game under ~25s
 const MATE_SCORE = 10000;
 
 const categorize = (loss: number): Category => {
@@ -71,7 +72,7 @@ const analyzeGame = (fens: string[], onProgress: (done: number) => void): { prom
         if (line.startsWith('bestmove')) resolve(whiteToMove ? score : -score);
       };
       worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go depth ${ANALYSIS_DEPTH}`);
+      worker.postMessage(`go depth ${ANALYSIS_DEPTH} movetime ${ANALYSIS_MOVETIME}`);
     });
 
   const promise = (async () => {

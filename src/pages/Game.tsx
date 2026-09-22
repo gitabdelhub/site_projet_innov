@@ -103,8 +103,9 @@ const CapturedPieces: React.FC<{ pieces: { type: string; color: 'w' | 'b' }[] }>
 
 // Formatter for seconds to MM:SS
 const formatTime = (secs: number) => {
-  const m = Math.floor(secs / 60).toString().padStart(2, '0');
-  const s = (secs % 60).toString().padStart(2, '0');
+  const whole = Math.ceil(secs);
+  const m = Math.floor(whole / 60).toString().padStart(2, '0');
+  const s = (whole % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 };
 
@@ -190,35 +191,26 @@ export const Game = () => {
     // Clock starts after White's first move
     if (moves.length === 0) return;
 
+    // Tick every 100ms so fast replies still consume time
     const timer = setInterval(() => {
-      if (turn === 'w') {
-        setWhiteTime(t => {
-          if (t <= 1) {
-            clearInterval(timer);
-            setTimeWinner('Black wins on time');
-            if (isAiMode) aiGame.declareResult({ winner: 'b', reason: 'timeout' });
-            soundEffects.playGameOver(userColor === 'b');
-            return 0;
-          }
-          return t - 1;
-        });
-      } else {
-        setBlackTime(t => {
-          if (t <= 1) {
-            clearInterval(timer);
-            setTimeWinner('White wins on time');
-            if (isAiMode) aiGame.declareResult({ winner: 'w', reason: 'timeout' });
-            soundEffects.playGameOver(userColor === 'w');
-            return 0;
-          }
-          return t - 1;
-        });
-      }
-    }, 1000);
+      const tick = (t: number) => Math.max(0, Math.round((t - 0.1) * 10) / 10);
+      if (turn === 'w') setWhiteTime(tick);
+      else setBlackTime(tick);
+    }, 100);
 
     return () => clearInterval(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGameActive, turn, status, timeWinner, userColor, isAiMode, aiGame.result, moves.length > 0]);
+
+  // Flag fall
+  useEffect(() => {
+    if (timeWinner || (whiteTime > 0 && blackTime > 0)) return;
+    const winner = whiteTime <= 0 ? 'b' : 'w';
+    setTimeWinner(winner === 'w' ? 'White wins on time' : 'Black wins on time');
+    if (isAiMode) aiGame.declareResult({ winner, reason: 'timeout' });
+    soundEffects.playGameOver(userColor === winner);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [whiteTime, blackTime, timeWinner]);
 
 
   function getOnlineDrawReason(): GameResult['reason'] | null {
@@ -746,7 +738,7 @@ export const Game = () => {
                         <button
                           onClick={aiGame.undoMove}
                           disabled={!!aiGame.result || moves.length === 0}
-                          className="bg-bg-darker hover:bg-bg-card text-text-primary font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors text-xs"
+                          className="disabled:opacity-40 disabled:cursor-not-allowed bg-bg-darker hover:bg-bg-card text-text-primary font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors text-xs"
                         >
                           Undo Move
                         </button>
