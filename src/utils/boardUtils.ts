@@ -4,7 +4,7 @@ export const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 export const isLightSquare = (square: string): boolean => {
   const file = square.charCodeAt(0) - 97;
   const rank = parseInt(square[1]) - 1;
-  return (file + rank) % 2 === 0;
+  return (file + rank) % 2 === 1; // a1 is a dark square
 };
 
 export const getSquareColor = (square: string): 'light' | 'dark' => {

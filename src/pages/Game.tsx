@@ -220,39 +220,6 @@ export const Game = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGameActive, turn, status, timeWinner, userColor, isAiMode, aiGame.result, moves.length > 0]);
 
-  // Keyboard shortcuts for rewinder
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isRewindMode) return;
-      
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setRewindIndex(prev => {
-          if (prev === null || prev === 0) return prev;
-          return prev - 1;
-        });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setRewindIndex(prev => {
-          if (prev === null || prev >= moves.length) return prev;
-          return prev + 1;
-        });
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setIsRewindMode(false);
-        setRewindIndex(null);
-      } else if (e.key === ' ') {
-        e.preventDefault();
-        // Toggle auto-play
-        if (rewindIndex !== null && rewindIndex < moves.length) {
-          setRewindIndex(prev => (prev || 0) + 1);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRewindMode, rewindIndex, moves.length]);
 
   function getOnlineDrawReason(): GameResult['reason'] | null {
     const c = mpGame.chess;
