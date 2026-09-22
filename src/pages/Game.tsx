@@ -128,6 +128,10 @@ export const Game = () => {
     color: 'w' | 'b';
   } | null>(null);
 
+  // Online selection state
+  const [mpSelected, setMpSelected] = useState<string | null>(null);
+  const [mpPossible, setMpPossible] = useState<string[]>([]);
+
   // Clocks/Timers
   const [whiteTime, setWhiteTime] = useState(600); // 10 mins
   const [blackTime, setBlackTime] = useState(600);
@@ -148,9 +152,15 @@ export const Game = () => {
   const isOnlineMode = gameMode === 'online';
   const isGameActive = isAiMode || (isOnlineMode && !!matchmaking.currentGame);
   
-  const fen = isAiMode ? aiGame.gameState.fen : (mpGame.game?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-  const turn = isAiMode ? aiGame.gameState.turn : (mpGame.game ? new Chess(mpGame.game.fen).turn() : 'w');
-  const status = isAiMode ? aiGame.gameState.status : (mpGame.game ? mpGame.game.status : 'waiting');
+  const fen = isAiMode ? aiGame.gameState.fen : mpGame.chess.fen();
+  const turn = isAiMode ? aiGame.gameState.turn : mpGame.chess.turn();
+  const status = isAiMode
+    ? aiGame.gameState.status
+    : !mpGame.game
+      ? 'waiting'
+      : mpGame.game.status === 'completed'
+        ? 'completed'
+        : mpGame.chess.isCheck() ? 'check' : 'playing';
   
   const moves = isAiMode ? aiGame.gameState.moves : (mpGame.game ? mpGame.chess.history({ verbose: true }).map(m => ({
     from: m.from,
@@ -186,7 +196,7 @@ export const Game = () => {
 
   // Clocks ticking effect
   useEffect(() => {
-    if (!isGameActive || (status !== 'playing' && status !== 'check')) return;
+    if (!isAiMode || (status !== 'playing' && status !== 'check')) return;
     if (timeWinner || (isAiMode && aiGame.result)) return;
     // Clock starts after White's first move
     if (moves.length === 0) return;
@@ -237,12 +247,29 @@ export const Game = () => {
       if (status !== 'playing' && status !== 'check') return;
       
       // Verify turn matches our color
-      const currentTurn = mpGame.chess.turn();
-      const isOurTurn = (isMpWhite && currentTurn === 'w') || (isMpBlack && currentTurn === 'b');
-      if (!isOurTurn) return;
+      const chess = mpGame.chess;
+      if (chess.turn() !== userColor) return;
 
-      // Handle square selection / movements - handled by mpGame.selectSquare
-      // For multiplayer, the ChessBoard uses its own internal state via mpGame
+      if (mpSelected && mpPossible.includes(square)) {
+        const piece = chess.get(mpSelected as any);
+        setMpSelected(null);
+        setMpPossible([]);
+        if (piece?.type === 'p' && (square[1] === '8' || square[1] === '1')) {
+          setPendingPromotion({ from: mpSelected, to: square, color: piece.color });
+        } else {
+          mpGame.makeMove(mpSelected, square);
+        }
+        return;
+      }
+      const piece = chess.get(square as any);
+      if (piece && piece.color === userColor && square !== mpSelected) {
+        setMpSelected(square);
+        setMpPossible(chess.moves({ square: square as any, verbose: true }).map((m) => m.to));
+      } else {
+        setMpSelected(null);
+        setMpPossible([]);
+      }
+      return;
     }
 
     // AI Mode Selection
@@ -307,14 +334,14 @@ export const Game = () => {
   const onlineResult: GameResult | null = isOnlineMode && mpGame.game?.status === 'completed'
     ? {
         winner: mpGame.game.winner ? (mpGame.game.winner === mpGame.game.white_player_id ? 'w' : 'b') : null,
-        reason: mpGame.chess.isCheckmate() ? 'checkmate' : (getOnlineDrawReason() ?? 'resignation'),
+        reason: (mpGame.game.end_reason as GameResult['reason'] | null) ?? (mpGame.chess.isCheckmate() ? 'checkmate' : (getOnlineDrawReason() ?? 'resignation')),
       }
     : null;
   const finalResult = aiResult ?? onlineResult ?? (timeWinner ? { winner: timeWinner.startsWith('White') ? 'w' : 'b', reason: 'timeout' } as GameResult : null);
   const gameOverText = finalResult
     ? (finalResult.winner === null
-        ? `🤝 Draw ${REASON_LABELS[finalResult.reason]}`
-        : `${finalResult.winner === userColor ? '🏆 You win' : '💀 You lose'} ${REASON_LABELS[finalResult.reason]}`)
+        ? `🤝 Draw ${(REASON_LABELS[finalResult.reason] ?? "")}`
+        : `${finalResult.winner === userColor ? '🏆 You win' : '💀 You lose'} ${(REASON_LABELS[finalResult.reason] ?? "")}`)
     : null;
   const [dismissedResult, setDismissedResult] = useState<string | null>(null);
   const resultKey = finalResult ? `${finalResult.winner}-${finalResult.reason}-${moves.length}` : null;
@@ -323,6 +350,10 @@ export const Game = () => {
   // Return to hub
   const handleExitGame = () => {
     if (isOnlineMode) {
+      if (mpGame.game?.status === 'playing') {
+        if (!window.confirm('Leaving now will resign the game. Continue?')) return;
+        mpGame.resign();
+      }
       matchmaking.setCurrentGame(null);
     }
     setGameMode('menu');
@@ -512,7 +543,7 @@ export const Game = () => {
                       <div className="font-bold text-sm text-text-primary flex items-center gap-1.5">
                         {isAiMode ? `Engine · Level ${aiGame.difficulty}` : (isMpWhite ? matchmaking.currentGame?.black_player_username : matchmaking.currentGame?.white_player_username)}
                         <span className="text-[10px] bg-bg-darker text-text-secondary px-1.5 py-0.5 rounded font-bold font-mono">
-                          {isAiMode ? `~${LEVEL_SETTINGS[aiGame.difficulty].elo}` : '—'}
+                          {isAiMode ? `~${LEVEL_SETTINGS[aiGame.difficulty].elo}` : ((isMpWhite ? mpGame.ratings.black : mpGame.ratings.white) ?? '…')}
                         </span>
                       </div>
                       {/* Captured pieces by opponent */}
@@ -526,8 +557,8 @@ export const Game = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Clock */}
-                  <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
+                  {/* Clock (AI mode only: online clocks are not synchronised) */}
+                  {isAiMode && <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
                     turn === (boardFlipped ? 'w' : 'b')
                       ? (boardFlipped ? whiteTime : blackTime) < 20
                         ? 'bg-danger/10 text-danger border-danger/30 animate-pulse'
@@ -535,7 +566,7 @@ export const Game = () => {
                       : 'bg-bg-darker text-text-secondary border-gray-200'
                   }`}>
                     ⏱️ {formatTime(boardFlipped ? whiteTime : blackTime)}
-                  </div>
+                  </div>}
                 </div>
 
                 {/* Board & Evaluation Bar side-by-side */}
@@ -555,11 +586,19 @@ export const Game = () => {
                           </h3>
                           <p className="text-sm text-gray-500 mb-5">
                             {finalResult?.winner === null
-                              ? `Game drawn ${finalResult ? REASON_LABELS[finalResult.reason] : ''}`
-                              : `${finalResult?.winner === 'w' ? 'White' : 'Black'} wins ${finalResult ? REASON_LABELS[finalResult.reason] : ''}`}
+                              ? `Game drawn ${finalResult ? (REASON_LABELS[finalResult.reason] ?? "") : ''}`
+                              : `${finalResult?.winner === 'w' ? 'White' : 'Black'} wins ${finalResult ? (REASON_LABELS[finalResult.reason] ?? "") : ''}`}
                             {' · '}{Math.ceil(moves.length / 2)} moves
                           </p>
                           <div className="space-y-2">
+                            {isOnlineMode && (
+                              <button
+                                onClick={() => { matchmaking.setCurrentGame(null); setIsRewindMode(false); setRewindIndex(null); }}
+                                className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-colors"
+                              >
+                                Find a new match
+                              </button>
+                            )}
                             {isAiMode && (
                               <button
                                 onClick={() => { aiGame.newGame(); resetClocks(); setIsRewindMode(false); setRewindIndex(null); }}
@@ -589,9 +628,9 @@ export const Game = () => {
                         fen: displayFen,
                         turn: isRewindMode && rewindIndex !== null ? (new Chess(displayFen).turn()) : turn,
                         moves: [],
-                        status: isRewindMode ? 'playing' : (status as any),
-                        selectedSquare: null,
-                        possibleMoves: [],
+                        status: 'playing',
+                        selectedSquare: isRewindMode ? null : mpSelected,
+                        possibleMoves: isRewindMode ? [] : mpPossible,
                         lastMove: isRewindMode && rewindIndex !== null && rewindIndex > 0 ? {
                           from: moves[rewindIndex - 1].from,
                           to: moves[rewindIndex - 1].to
@@ -616,7 +655,7 @@ export const Game = () => {
                       <div className="font-bold text-sm text-text-primary flex items-center gap-1.5">
                         {user ? user.username : 'Guest Player'}
                         <span className="text-[10px] bg-bg-darker text-text-secondary px-1.5 py-0.5 rounded font-bold font-mono">
-                          {user ? user.elo_rating : '1200'}
+                          {user ? user.elo_rating : '—'}
                         </span>
                       </div>
                       {/* Captured pieces by player */}
@@ -631,7 +670,7 @@ export const Game = () => {
                     </div>
                   </div>
                   {/* Clock */}
-                  <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
+                  {isAiMode && <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
                     turn === (boardFlipped ? 'b' : 'w')
                       ? (boardFlipped ? blackTime : whiteTime) < 20
                         ? 'bg-danger/10 text-danger border-danger/30 animate-pulse'
@@ -639,7 +678,7 @@ export const Game = () => {
                       : 'bg-bg-darker text-text-secondary border-gray-200'
                   }`}>
                     ⏱️ {formatTime(boardFlipped ? blackTime : whiteTime)}
-                  </div>
+                  </div>}
                 </div>
               </div>
             </div>
@@ -704,7 +743,7 @@ export const Game = () => {
                     {/* Status Indicator */}
                     <div className="text-center py-3 bg-bg-darker rounded-xl border border-gray-200/40 mb-4 flex flex-col items-center justify-center">
                       <p className={`text-base font-extrabold ${
-                        status === 'checkmate' ? 'text-danger' : status === 'check' ? 'text-amber-500' : 'text-text-primary'
+                        status === 'checkmate' || status === 'completed' ? 'text-danger' : status === 'check' ? 'text-amber-500' : 'text-text-primary'
                       }`}>
                         {gameOverText ? gameOverText : (
                           <>
@@ -717,23 +756,36 @@ export const Game = () => {
                       </p>
                     </div>
 
+                    {isOnlineMode && mpGame.error && (
+                      <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-lg px-3 py-2 mb-3">{mpGame.error}</p>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => {
-                          if (isAiMode) {
-                            aiGame.newGame();
+                      {isAiMode || mpGame.game?.status === 'completed' ? (
+                        <button
+                          onClick={() => {
                             setIsRewindMode(false);
                             setRewindIndex(null);
-                          } else {
-                            // Multiplayer resign / draw is potential
-                          }
-                          resetClocks();
-                        }}
-                        className="bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors"
-                      >
-                        New Game
-                      </button>
+                            if (isAiMode) {
+                              aiGame.newGame();
+                              resetClocks();
+                            } else {
+                              matchmaking.setCurrentGame(null);
+                            }
+                          }}
+                          className="bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors"
+                        >
+                          {isAiMode ? 'New Game' : 'New Match'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { if (window.confirm('Resign this game?')) mpGame.resign(); }}
+                          className="bg-danger/10 hover:bg-danger/20 text-danger font-bold py-2.5 px-4 rounded-xl text-xs border border-danger/20 transition-colors"
+                        >
+                          🏳️ Resign
+                        </button>
+                      )}
                       {isAiMode ? (
                         <button
                           onClick={aiGame.undoMove}

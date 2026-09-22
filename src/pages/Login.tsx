@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export const Login = () => {
@@ -12,8 +12,7 @@ export const Login = () => {
 
   // Redirect if already logged in
   if (user) {
-    navigate('/game');
-    return null;
+    return <Navigate to="/game" replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

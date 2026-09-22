@@ -25,6 +25,7 @@ export interface Game {
   pgn: string;
   status: 'waiting' | 'playing' | 'completed' | 'aborted';
   winner: string | null;
+  end_reason?: string | null;
   created_at: string;
   updated_at: string;
 }

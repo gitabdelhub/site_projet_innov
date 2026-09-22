@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { MatchmakingQueue, Game } from '../types/auth';
 import { useAuth } from './useAuth';
@@ -10,6 +10,8 @@ export const useMatchmaking = () => {
   const { user } = useAuth();
   
   const configured = isSupabaseConfigured();
+  const searchingRef = useRef(false);
+  searchingRef.current = isSearching;
 
   useEffect(() => {
     if (!user || !configured) return;
@@ -81,6 +83,29 @@ export const useMatchmaking = () => {
     };
   }, [user, configured]);
 
+  // While searching, retry every 3s and leave the queue if the page is closed
+  useEffect(() => {
+    if (!isSearching || !user || !configured) return;
+    const interval = setInterval(() => {
+      if (searchingRef.current) findMatch();
+    }, 3000);
+    const leave = () => {
+      supabase.from('matchmaking_queue').delete().eq('user_id', user.id);
+    };
+    window.addEventListener('beforeunload', leave);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', leave);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSearching, user?.id, configured]);
+
+  // Leave the queue when the component unmounts during a search
+  useEffect(() => () => {
+    if (searchingRef.current && user) supabase.from('matchmaking_queue').delete().eq('user_id', user.id).then(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const joinQueue = async () => {
     if (!user || !configured) return;
 
@@ -131,6 +156,7 @@ export const useMatchmaking = () => {
         .neq('user_id', user.id)
         .gte('elo_rating', user.elo_rating - 150)
         .lte('elo_rating', user.elo_rating + 150)
+        .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()) // ignore abandoned entries
         .order('created_at', { ascending: true })
         .limit(1);
 
@@ -156,6 +182,10 @@ export const useMatchmaking = () => {
             .eq('user_id', user.id);
           return;
         }
+
+        // Both players poll: only the one with the smaller id creates the game, so it is created once.
+        // The other one receives it through the game_invitations subscription.
+        if (user.id > opponent.user_id) return;
 
         // Create game (we are White, opponent is Black)
         const { data: game, error: gameError } = await supabase

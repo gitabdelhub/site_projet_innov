@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
+import { AuthProvider } from './hooks/AuthProvider';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Leaderboard } from './pages/Leaderboard';
@@ -13,23 +14,25 @@ import { CoachThemes } from './pages/CoachThemes';
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-bg-dark text-text-primary">
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/game" element={<Game />} />
-          <Route path="/coach" element={<Coach />} />
-          <Route path="/coach/elo" element={<CoachElo />} />
-          <Route path="/coach/tactics" element={<CoachTactics />} />
-          <Route path="/coach/position" element={<CoachPosition />} />
-          <Route path="/coach/themes" element={<CoachThemes />} />
-        </Routes>
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-bg-dark text-text-primary">
+          <Navigation />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/game" element={<Game />} />
+            <Route path="/coach" element={<Coach />} />
+            <Route path="/coach/elo" element={<CoachElo />} />
+            <Route path="/coach/tactics" element={<CoachTactics />} />
+            <Route path="/coach/position" element={<CoachPosition />} />
+            <Route path="/coach/themes" element={<CoachThemes />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
