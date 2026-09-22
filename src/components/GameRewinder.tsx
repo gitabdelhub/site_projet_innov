@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import type { Move } from '../types/chess';
+import { evaluatePositions, judgeMoves, formatEval, type AnalyzedMove, type MoveCategory } from '../lib/analysis';
 
-type Category = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
-
-interface MoveAnalysis {
-  evalAfter: number; // centipawns, from White's point of view
-  loss: number; // centipawns lost by the side that moved
-  category: Category;
-}
+type Category = MoveCategory;
 
 interface GameRewinderProps {
   moves: Move[];
@@ -20,18 +15,6 @@ interface GameRewinderProps {
   setIsRewindMode: (mode: boolean) => void;
   totalMoves: number;
 }
-
-const ANALYSIS_DEPTH = 12;
-const ANALYSIS_MOVETIME = 250; // ms per position, keeps a 40-move game under ~25s
-const MATE_SCORE = 10000;
-
-const categorize = (loss: number): Category => {
-  if (loss >= 300) return 'blunder';
-  if (loss >= 150) return 'mistake';
-  if (loss >= 60) return 'inaccuracy';
-  if (loss <= 15) return 'best';
-  return 'good';
-};
 
 const COMMENTS: Record<Category, string> = {
   best: 'Excellent — this is the engine\'s choice or equivalent.',
@@ -51,59 +34,6 @@ const COLORS: Record<Category, string> = {
 
 const ICONS: Record<Category, string> = { best: '★', good: '✓', inaccuracy: '?!', mistake: '?', blunder: '??' };
 
-// Evaluate every position of the game with a dedicated Stockfish worker
-const analyzeGame = (fens: string[], onProgress: (done: number) => void): { promise: Promise<number[]>; cancel: () => void } => {
-  const worker = new Worker('/stockfish.js');
-  let cancelled = false;
-
-  const evaluate = (fen: string) =>
-    new Promise<number>((resolve) => {
-      let score = 0;
-      const whiteToMove = fen.split(' ')[1] === 'w';
-      worker.onmessage = (e) => {
-        const line = String(e.data);
-        const cp = line.match(/score cp (-?\d+)/);
-        const mate = line.match(/score mate (-?\d+)/);
-        if (cp) score = parseInt(cp[1], 10);
-        if (mate) {
-          const n = parseInt(mate[1], 10);
-          score = n > 0 ? MATE_SCORE - n : -MATE_SCORE - n;
-        }
-        if (line.startsWith('bestmove')) resolve(whiteToMove ? score : -score);
-      };
-      worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go depth ${ANALYSIS_DEPTH} movetime ${ANALYSIS_MOVETIME}`);
-    });
-
-  const promise = (async () => {
-    worker.postMessage('uci');
-    worker.postMessage('ucinewgame');
-    const evals: number[] = [];
-    for (let i = 0; i < fens.length; i++) {
-      if (cancelled) break;
-      const chess = new Chess(fens[i]);
-      if (chess.isCheckmate()) {
-        evals.push(chess.turn() === 'w' ? -MATE_SCORE : MATE_SCORE);
-      } else if (chess.isDraw()) {
-        evals.push(0);
-      } else {
-        evals.push(await evaluate(fens[i]));
-      }
-      onProgress(i + 1);
-    }
-    worker.terminate();
-    return evals;
-  })();
-
-  return {
-    promise,
-    cancel: () => {
-      cancelled = true;
-      worker.terminate();
-    },
-  };
-};
-
 export const GameRewinder: React.FC<GameRewinderProps> = ({
   moves,
   initialFen,
@@ -114,7 +44,7 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
   setIsRewindMode,
   totalMoves,
 }) => {
-  const [analysis, setAnalysis] = useState<MoveAnalysis[] | null>(null);
+  const [analysis, setAnalysis] = useState<AnalyzedMove[] | null>(null);
   const [progress, setProgress] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const analyzedKeyRef = useRef<string>('');
@@ -135,18 +65,11 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
 
     setAnalysis(null);
     setProgress(0);
-    const job = analyzeGame(fens, setProgress);
+    const job = evaluatePositions(fens, setProgress);
     job.promise.then((evals) => {
       if (evals.length !== fens.length) return;
-      const result: MoveAnalysis[] = moves.map((_, i) => {
-        const moverIsWhite = i % 2 === 0;
-        const before = Math.max(-1500, Math.min(1500, evals[i]));
-        const after = Math.max(-1500, Math.min(1500, evals[i + 1]));
-        const loss = Math.max(0, moverIsWhite ? before - after : after - before);
-        return { evalAfter: evals[i + 1], loss, category: categorize(loss) };
-      });
       analyzedKeyRef.current = movesKey;
-      setAnalysis(result);
+      setAnalysis(judgeMoves(moves.map((m) => m.san), evals));
     });
     return job.cancel;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,11 +134,6 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
   };
 
   const current = rewindIndex !== null && rewindIndex > 0 && analysis ? analysis[rewindIndex - 1] : null;
-  const formatEval = (cp: number) =>
-    Math.abs(cp) >= MATE_SCORE - 100
-      ? `${cp > 0 ? '+' : '-'}M${MATE_SCORE - Math.abs(cp)}`
-      : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(1)}`;
-
   const countFor = (color: 'w' | 'b', cat: Category) =>
     analysis ? analysis.filter((a, i) => (i % 2 === 0 ? 'w' : 'b') === color && a.category === cat).length : 0;
   const opponentColor = playerColor === 'w' ? 'b' : 'w';
