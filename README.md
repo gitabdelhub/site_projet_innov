@@ -22,30 +22,28 @@ Une application d'échecs moderne et complète avec entraînement par IA, analys
 - ✅ **Chat en jeu** : Communiquez avec votre adversaire
 - ✅ **Profils utilisateurs** : Suivez vos statistiques et historique
 
-### AI Coach (Nouveau)
-- ✅ **Game Rewinder** : Analysez vos parties en rembobinant les coups
-  - Animation automatique avec délai de 800ms
-  - Raccourcis clavier (flèches, espace, escape)
-  - Analyse de la qualité des coups (best, good, inaccuracy, mistake, blunder)
-- ✅ **Tactic Trainer** : Entraînement tactique interactif
-  - 6 puzzles niveau débutant (Fork, Pin, Discovered Attack, Skewer, Back Rank, Mate in 1)
-  - Système de progression (puzzles résolus, série de victoires)
-  - Effets sonores et feedback visuel
-- ✅ **Position Trainer** : Maîtrisez les positions critiques
-  - 6 positions niveau débutant (Italian Game, Pin, Center Control, Development)
-  - Explications détaillées des meilleurs coups
-  - Statistiques de progression
-- ✅ **Elo Prediction** : Prédiction Elo avec ML
-  - Backend Python Flask avec API REST
-  - Méthode de fallback si le modèle ML n'est pas disponible
-  - Analyse basée sur les caractéristiques des parties
+### AI Coach
+- ✅ **Game Rewinder** : rejouez vos parties coup par coup
+  - Lecture automatique (pause possible), liste de coups cliquable
+  - Raccourcis clavier : ← → Début Fin Espace Échap
+  - Analyse réelle par Stockfish : précision, best / inaccuracy / mistake / blunder
+- ✅ **Tactic Trainer** : 20 puzzles répartis en 7 thèmes (mat du couloir, fourchettes, clouages, pièges d'ouverture, sacrifices de dame…)
+  - Combinaisons en plusieurs coups avec réponses de l'adversaire
+  - Indice, solution animée, progression et série sauvegardées dans le navigateur
+  - Tous les puzzles sont vérifiés par Stockfish : `npm run verify:puzzles`
+- ✅ **Theme Trainer** : chaque thème ouvre ses puzzles, avec la progression par thème
+- ✅ **Position Trainer** : 6 positions d'ouverture, plusieurs bons coups acceptés
+- ✅ **Elo Prediction** : estimation du niveau à partir d'une partie
+  - Import de la dernière partie Lichess par pseudo, ou PGN collé
+  - Analyse Stockfish de chaque coup : précision (formule Lichess), perte moyenne (ACPL), erreurs clés
+  - Modèle ML Python optionnel (`VITE_ML_API_URL`), sinon estimation à partir de l'ACPL
 
 ## Tech Stack
 
 - **Frontend**: React 18 with TypeScript
 - **Build Tool**: Vite
-- **Chess Logic**: chess.js (v1.0.0-beta.8)
-- **AI Engine**: Stockfish WebAssembly
+- **Chess Logic**: chess.js 1.x
+- **AI Engine**: Stockfish 10 (asm.js, Web Worker)
 - **Backend**: Supabase (Authentication, Database, Real-time)
 - **Styling**: Tailwind CSS
 - **Deployment**: Vercel (ready)
@@ -63,6 +61,8 @@ Une application d'échecs moderne et complète avec entraînement par IA, analys
    - Go to the SQL Editor in your Supabase dashboard
    - Copy and run the SQL script from `supabase-setup.sql`
    - This will create all necessary tables and set up Row Level Security
+   - **Then run `supabase-migration-v2.sql`** (required for online games): it records results
+     and Elo changes server-side and prevents players from editing their own rating
 
 3. **Get your Supabase Credentials**:
    - Go to Project Settings → API
@@ -74,7 +74,11 @@ Une application d'échecs moderne et complète avec entraînement par IA, analys
    ```env
    VITE_SUPABASE_URL=your_supabase_project_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   # Optional: Python Elo model (ml_backend/app.py)
+   # VITE_ML_API_URL=http://localhost:5000
    ```
+   Without Supabase credentials the site runs in local mode: solo play, coach and
+   Elo prediction work, online play is disabled.
 
 5. **Install Dependencies**:
 ```bash
@@ -118,11 +122,15 @@ The built files will be in the `dist` directory.
 
 ## Difficulty Levels
 
-- **Beginner**: AI makes random moves occasionally
-- **Easy**: Basic positional understanding
-- **Medium**: Decent tactical play (default)
-- **Hard**: Strong tactical and positional play
-- **Expert**: Maximum strength with deep analysis
+| Level | Approx. Elo | Engine settings |
+|---|---|---|
+| 1 – Beginner | ~600 | Skill 0, depth 1, 35% random moves |
+| 2 – Easy | ~1000 | Skill 3, depth 3, 10% random moves |
+| 3 – Medium | ~1400 | Skill 8, depth 6 |
+| 4 – Hard | ~1900 | Skill 14, depth 10 |
+| 5 – Expert | ~2400 | Skill 20, depth 18 |
+
+Settings live in `LEVEL_SETTINGS` (`src/hooks/useStockfish.ts`).
 
 ## Elo Rating System
 
@@ -137,9 +145,9 @@ The game uses the standard Elo rating algorithm:
 - Standard piece movements (King, Queen, Rook, Bishop, Knight, Pawn)
 - Castling (both kingside and queenside)
 - En passant captures
-- Pawn promotion (auto-promotes to Queen)
+- Pawn promotion (choice of queen, rook, bishop or knight)
 - Check detection with visual indicator
-- Checkmate detection
+- Checkmate detection, with a game-over screen (win / loss / draw and the reason)
 - Stalemate detection
 - Draw by repetition and insufficient material
 
@@ -255,7 +263,7 @@ Le backend Python pour la prédiction Elo (`ml_backend/app.py`) n'est pas inclus
 
 1. **Option 1 : Utiliser un service comme Render ou Railway**
    - Déployez le backend Python sur Render.com ou Railway.app
-   - Mettez à jour l'URL dans `CoachElo.tsx` pour pointer vers le backend déployé
+   - Définissez la variable `VITE_ML_API_URL` (dans Vercel) avec l'URL du backend déployé
 
 2. **Option 2 : Utiliser uniquement la méthode de fallback**
    - Le site fonctionne déjà avec la méthode de fallback
