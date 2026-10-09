@@ -25,6 +25,7 @@ const REASON_LABELS: Record<GameResult['reason'], string> = {
   'fifty-moves': 'by the 50-move rule',
   timeout: 'on time',
   resignation: 'by resignation',
+  aborted: '— game aborted, ratings unchanged',
 };
 
 // Helper to calculate captured pieces from FEN
@@ -180,6 +181,11 @@ export const Game = () => {
           }
         : null);
 
+  // Clocks shown on screen (seconds): the database clock online, the local one against the engine
+  const showClocks = isAiMode || (isOnlineMode && mpGame.hasClock);
+  const shownWhite = isOnlineMode ? mpGame.clock.white / 1000 : whiteTime;
+  const shownBlack = isOnlineMode ? mpGame.clock.black / 1000 : blackTime;
+
   // Check if player is white or black in multiplayer
   const isMpWhite = isOnlineMode && matchmaking.currentGame?.white_player_id === user?.id;
   const isMpBlack = isOnlineMode && matchmaking.currentGame?.black_player_id === user?.id;
@@ -331,7 +337,9 @@ export const Game = () => {
 
   // Game over summary (AI mode uses the engine result, online uses the stored game)
   const aiResult = isAiMode ? aiGame.result : null;
-  const onlineResult: GameResult | null = isOnlineMode && mpGame.game?.status === 'completed'
+  const onlineResult: GameResult | null = isOnlineMode && mpGame.game?.status === 'aborted'
+    ? { winner: null, reason: 'aborted' }
+    : isOnlineMode && mpGame.game?.status === 'completed'
     ? {
         winner: mpGame.game.winner ? (mpGame.game.winner === mpGame.game.white_player_id ? 'w' : 'b') : null,
         reason: (mpGame.game.end_reason as GameResult['reason'] | null) ?? (mpGame.chess.isCheckmate() ? 'checkmate' : (getOnlineDrawReason() ?? 'resignation')),
@@ -340,7 +348,7 @@ export const Game = () => {
   const finalResult = aiResult ?? onlineResult ?? (timeWinner ? { winner: timeWinner.startsWith('White') ? 'w' : 'b', reason: 'timeout' } as GameResult : null);
   const gameOverText = finalResult
     ? (finalResult.winner === null
-        ? `🤝 Draw ${(REASON_LABELS[finalResult.reason] ?? "")}`
+        ? (finalResult.reason === 'aborted' ? 'Game aborted' : `🤝 Draw ${(REASON_LABELS[finalResult.reason] ?? "")}`)
         : `${finalResult.winner === userColor ? '🏆 You win' : '💀 You lose'} ${(REASON_LABELS[finalResult.reason] ?? "")}`)
     : null;
   const [dismissedResult, setDismissedResult] = useState<string | null>(null);
@@ -460,9 +468,11 @@ export const Game = () => {
                         <span className="text-accent font-extrabold text-xs sm:text-sm">{user.elo_rating} Elo</span>
                       </div>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setGameMode('online');
                           soundEffects.playMove();
+                          const ongoing = await matchmaking.findOngoingGame();
+                          if (ongoing) matchmaking.setCurrentGame(ongoing);
                         }}
                         className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-sm shadow-accent/25"
                       >
@@ -493,7 +503,7 @@ export const Game = () => {
                   
                   <div className="space-y-1">
                     <p className="text-text-primary font-bold text-sm">Searching for Opponent...</p>
-                    <p className="text-text-secondary text-xs">Matching within ±150 Elo rating</p>
+                    <p className="text-text-secondary text-xs">Matching within ±{matchmaking.ratingWindow} Elo · {matchmaking.waitedSeconds}s</p>
                   </div>
                   
                   <button
@@ -508,6 +518,9 @@ export const Game = () => {
                   <p className="text-text-secondary text-sm leading-relaxed">
                     Click "Find Match" to search the matchmaking queue for players of a similar skill level.
                   </p>
+                  {matchmaking.error && (
+                    <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-lg px-3 py-2">{matchmaking.error}</p>
+                  )}
                   <button
                     onClick={matchmaking.joinQueue}
                     className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-sm shadow-accent/25"
@@ -557,15 +570,15 @@ export const Game = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Clock (AI mode only: online clocks are not synchronised) */}
-                  {isAiMode && <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
+                  {/* Clock */}
+                  {showClocks && <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
                     turn === (boardFlipped ? 'w' : 'b')
-                      ? (boardFlipped ? whiteTime : blackTime) < 20
+                      ? (boardFlipped ? shownWhite : shownBlack) < 20
                         ? 'bg-danger/10 text-danger border-danger/30 animate-pulse'
                         : 'bg-accent/10 text-accent border-accent/30'
                       : 'bg-bg-darker text-text-secondary border-gray-200'
                   }`}>
-                    ⏱️ {formatTime(boardFlipped ? whiteTime : blackTime)}
+                    ⏱️ {formatTime(boardFlipped ? shownWhite : shownBlack)}
                   </div>}
                 </div>
 
@@ -582,7 +595,7 @@ export const Game = () => {
                             {finalResult?.winner === null ? '🤝' : finalResult?.winner === userColor ? '🏆' : '💀'}
                           </div>
                           <h3 className="text-xl font-extrabold text-gray-800 mb-1">
-                            {finalResult?.winner === null ? 'Draw' : finalResult?.winner === userColor ? 'You win!' : 'You lose'}
+                            {finalResult?.reason === 'aborted' ? 'Game aborted' : finalResult?.winner === null ? 'Draw' : finalResult?.winner === userColor ? 'You win!' : 'You lose'}
                           </h3>
                           <p className="text-sm text-gray-500 mb-5">
                             {finalResult?.winner === null
@@ -670,14 +683,14 @@ export const Game = () => {
                     </div>
                   </div>
                   {/* Clock */}
-                  {isAiMode && <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
+                  {showClocks && <div className={`font-mono font-bold text-base px-3 py-1.5 rounded-lg border flex items-center gap-1 ${
                     turn === (boardFlipped ? 'b' : 'w')
-                      ? (boardFlipped ? blackTime : whiteTime) < 20
+                      ? (boardFlipped ? shownBlack : shownWhite) < 20
                         ? 'bg-danger/10 text-danger border-danger/30 animate-pulse'
                         : 'bg-accent/10 text-accent border-accent/30'
                       : 'bg-bg-darker text-text-secondary border-gray-200'
                   }`}>
-                    ⏱️ {formatTime(boardFlipped ? blackTime : whiteTime)}
+                    ⏱️ {formatTime(boardFlipped ? shownBlack : shownWhite)}
                   </div>}
                 </div>
               </div>
@@ -756,13 +769,21 @@ export const Game = () => {
                       </p>
                     </div>
 
+                    {isOnlineMode && mpGame.canAbort && (
+                      <button
+                        onClick={mpGame.abort}
+                        className="w-full mb-3 bg-bg-darker hover:bg-bg-dark text-text-primary font-bold py-2 px-4 rounded-xl text-xs border border-gray-200 transition-colors"
+                      >
+                        Opponent not playing? Abort the game (no rating change)
+                      </button>
+                    )}
                     {isOnlineMode && mpGame.error && (
                       <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-lg px-3 py-2 mb-3">{mpGame.error}</p>
                     )}
 
                     {/* Action Buttons */}
                     <div className="grid grid-cols-2 gap-3">
-                      {isAiMode || mpGame.game?.status === 'completed' ? (
+                      {isAiMode || (mpGame.game && mpGame.game.status !== 'playing') ? (
                         <button
                           onClick={() => {
                             setIsRewindMode(false);

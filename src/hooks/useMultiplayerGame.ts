@@ -4,9 +4,6 @@ import { Chess } from 'chess.js';
 import type { Game, Message } from '../types/auth';
 import { useAuth } from './useAuth';
 import { soundEffects } from '../utils/soundEffects';
-import { getGameResult } from './useChessGame';
-
-type ResultCode = 'white' | 'black' | 'draw';
 
 const loadInto = (chess: Chess, game: Pick<Game, 'pgn' | 'fen'>) => {
   try {
@@ -17,6 +14,8 @@ const loadInto = (chess: Chess, game: Pick<Game, 'pgn' | 'fen'>) => {
   }
 };
 
+// Online game. The browser only reads the game: moves go through /api/move
+// (checked by the server), resignation and time-outs through database functions.
 export const useMultiplayerGame = (gameId: string) => {
   const [game, setGame] = useState<Game | null>(null);
   const chessRef = useRef(new Chess());
@@ -24,9 +23,11 @@ export const useMultiplayerGame = (gameId: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [ratings, setRatings] = useState<{ white: number | null; black: number | null }>({ white: null, black: null });
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const serverOffsetRef = useRef(0); // database clock minus browser clock, in ms
+  const claimingRef = useRef(false);
   const { user, refreshProfile } = useAuth();
   const configured = isSupabaseConfigured();
-  const finishingRef = useRef(false);
 
   const bump = () => setVersion((v) => v + 1);
 
@@ -38,16 +39,29 @@ export const useMultiplayerGame = (gameId: string) => {
     });
   }, []);
 
+  const reload = useCallback(async () => {
+    const { data } = await supabase.from('games').select('*').eq('id', gameId).single();
+    if (!data) return;
+    setGame(data);
+    loadInto(chessRef.current, data);
+    bump();
+  }, [gameId]);
+
   useEffect(() => {
     setGame(null);
     setMessages([]);
     setError(null);
-    finishingRef.current = false;
     chessRef.current = new Chess();
     bump();
     if (!gameId || !user || !configured) return;
 
     const chess = chessRef.current;
+
+    // Line the browser clock up with the database clock
+    const sent = Date.now();
+    supabase.rpc('server_now').then(({ data }) => {
+      if (data) serverOffsetRef.current = new Date(data as string).getTime() - (sent + Date.now()) / 2;
+    });
 
     supabase.from('games').select('*').eq('id', gameId).single().then(({ data, error }) => {
       if (error || !data) {
@@ -80,8 +94,8 @@ export const useMultiplayerGame = (gameId: string) => {
           else if (last?.captured) soundEffects.playCapture();
           else soundEffects.playMove();
         }
-        if (updated.status === 'completed') {
-          if (!chess.isGameOver()) soundEffects.playGameOver(updated.winner === user.id);
+        if (updated.status !== 'playing') {
+          if (updated.status === 'completed' && !chess.isGameOver()) soundEffects.playGameOver(updated.winner === user.id);
           refreshProfile();
           fetchRatings(updated);
         }
@@ -102,18 +116,32 @@ export const useMultiplayerGame = (gameId: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, user?.id, configured]);
 
-  const finishGame = useCallback(async (result: ResultCode, reason: string) => {
-    if (!game || finishingRef.current) return;
-    finishingRef.current = true;
-    const { error } = await supabase.rpc('finish_game', { p_game_id: game.id, p_result: result, p_reason: reason });
-    if (error) {
-      finishingRef.current = false;
-      console.error('finish_game failed — did you run supabase-migration-v2.sql?', error);
-      setError('Could not record the result. Ask the admin to run supabase-migration-v2.sql.');
-      return;
-    }
-    refreshProfile();
-  }, [game, refreshProfile]);
+  // Clock: the database stores the time left when the turn started
+  const playing = game?.status === 'playing';
+  useEffect(() => {
+    if (!playing) return;
+    const timer = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(timer);
+  }, [playing]);
+
+  const turn = chessRef.current.turn();
+  const elapsed = game?.turn_started_at && playing
+    ? Math.max(0, now + serverOffsetRef.current - new Date(game.turn_started_at).getTime())
+    : 0;
+  const clock = {
+    white: Math.max(0, (game?.white_ms ?? 0) - (turn === 'w' ? elapsed : 0)),
+    black: Math.max(0, (game?.black_ms ?? 0) - (turn === 'b' ? elapsed : 0)),
+  };
+  const flagged = playing && game?.white_ms !== undefined && (turn === 'w' ? clock.white : clock.black) <= 0;
+
+  // When a clock reaches zero, ask the database to confirm the time-out
+  useEffect(() => {
+    if (!flagged || !game || claimingRef.current) return;
+    claimingRef.current = true;
+    supabase.rpc('claim_timeout', { p_game_id: game.id }).then(() => {
+      setTimeout(() => { claimingRef.current = false; }, 1000);
+    });
+  }, [flagged, game, now]);
 
   const makeMove = useCallback(async (from: string, to: string, promotion?: string) => {
     const chess = chessRef.current;
@@ -127,40 +155,50 @@ export const useMultiplayerGame = (gameId: string) => {
     } catch {
       return false;
     }
-    // Optimistic update: show the move immediately, roll back if the server refuses it
+    // Optimistic update: show the move immediately, the server has the final word
     bump();
     if (chess.isCheck()) soundEffects.playCheck();
     else if (move.captured) soundEffects.playCapture();
     else soundEffects.playMove();
+    setError(null);
 
-    const { error } = await supabase
-      .from('games')
-      .update({ fen: chess.fen(), pgn: chess.pgn(), updated_at: new Date().toISOString() })
-      .eq('id', game.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    let message: string | null = null;
+    try {
+      const res = await fetch('/api/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ gameId: game.id, from, to, promotion }),
+      });
+      if (!res.ok) message = (await res.json().catch(() => null))?.error ?? 'Your move was refused.';
+    } catch {
+      message = 'Your move could not be sent. Check your connection.';
+    }
 
-    if (error) {
-      console.error('Error making move:', error);
-      chess.undo();
-      bump();
-      setError('Your move could not be sent. Check your connection.');
+    if (message) {
+      setError(message);
+      await reload();
       return false;
     }
-
-    const result = getGameResult(chess);
-    if (result) {
-      await finishGame(result.winner === null ? 'draw' : result.winner === 'w' ? 'white' : 'black', result.reason);
-    }
     return true;
-  }, [game, user, finishGame]);
+  }, [game, user, reload]);
 
   const resign = useCallback(async () => {
-    if (!game || !user || game.status !== 'playing') return;
-    await finishGame(game.white_player_id === user.id ? 'black' : 'white', 'resignation');
-  }, [game, user, finishGame]);
+    if (!game || game.status !== 'playing') return;
+    const { error } = await supabase.rpc('resign_game', { p_game_id: game.id });
+    if (error) setError('Could not resign. Check your connection.');
+  }, [game]);
+
+  // Cancel a game the opponent never started (no rating change)
+  const canAbort = playing && (game?.ply ?? 0) < 2 && elapsed > 30000;
+  const abort = useCallback(async () => {
+    if (!game) return;
+    await supabase.rpc('abort_game', { p_game_id: game.id });
+  }, [game]);
 
   const sendMessage = async (content: string) => {
     if (!user || !game) return;
-    const { error } = await supabase.from('messages').insert({ game_id: gameId, user_id: user.id, username: user.username, content });
+    const { error } = await supabase.from('messages').insert({ game_id: gameId, user_id: user.id, content: content.slice(0, 500) });
     if (error) console.error('Error sending message:', error);
   };
 
@@ -170,8 +208,12 @@ export const useMultiplayerGame = (gameId: string) => {
     messages,
     ratings,
     error,
+    clock,
+    hasClock: game?.white_ms !== undefined,
+    canAbort,
     makeMove,
     resign,
+    abort,
     sendMessage,
   };
 };

@@ -37,8 +37,19 @@ if (fs.existsSync(OUT)) {
 const candidates = new Map(); // username -> last seen rating
 
 const get = async (url, accept) => {
-  for (;;) {
-    const res = await fetch(url, { headers: { Accept: accept, 'User-Agent': UA } });
+  for (let attempt = 1; ; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, { headers: { Accept: accept, 'User-Agent': UA } });
+      // Read the body here so a connection cut mid-stream is retried too
+      const text = await res.text();
+      res = { ok: res.ok, status: res.status, text: async () => text, json: async () => JSON.parse(text) };
+    } catch (error) {
+      if (attempt >= 5) throw error;
+      console.log(`network error (${error.code ?? error.message}), retrying in 10s`);
+      await sleep(10000);
+      continue;
+    }
     if (res.status === 429) {
       console.log('rate limited, waiting 65s');
       await sleep(65000);

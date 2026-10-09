@@ -26,6 +26,12 @@ export interface Game {
   status: 'waiting' | 'playing' | 'completed' | 'aborted';
   winner: string | null;
   end_reason?: string | null;
+  // Online clock (migration v3): time left when the current turn started
+  ply?: number;
+  white_ms?: number;
+  black_ms?: number;
+  increment_ms?: number;
+  turn_started_at?: string;
   created_at: string;
   updated_at: string;
 }

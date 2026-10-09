@@ -27,7 +27,8 @@ export type GameEndReason =
   | 'insufficient'
   | 'fifty-moves'
   | 'timeout'
-  | 'resignation';
+  | 'resignation'
+  | 'aborted';
 
 export interface GameResult {
   winner: PieceColor | null; // null = draw

@@ -1,246 +1,103 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { MatchmakingQueue, Game } from '../types/auth';
+import type { Game } from '../types/auth';
 import { useAuth } from './useAuth';
 
+const POLL_MS = 2000;
+
+// Matchmaking runs in the database (join_queue): it reads the real rating,
+// pairs players atomically and widens the rating window the longer you wait.
 export const useMatchmaking = () => {
-  const [queue, setQueue] = useState<MatchmakingQueue[]>([]);
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [waitedSeconds, setWaitedSeconds] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  
   const configured = isSupabaseConfigured();
   const searchingRef = useRef(false);
-  searchingRef.current = isSearching;
 
-  useEffect(() => {
-    if (!user || !configured) return;
+  const openGame = useCallback(async (gameId: string) => {
+    const { data } = await supabase.from('games').select('*').eq('id', gameId).single();
+    if (data) {
+      searchingRef.current = false;
+      setIsSearching(false);
+      setCurrentGame(data);
+    }
+  }, []);
 
-    // Subscribe to matchmaking queue changes
-    const queueSubscription = supabase
-      .channel('matchmaking_queue')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'matchmaking_queue',
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setQueue(prev => {
-              // Avoid duplicates
-              const next = payload.new as MatchmakingQueue;
-              if (prev.some(item => item.id === next.id)) return prev;
-              return [...prev, next];
-            });
-          } else if (payload.eventType === 'DELETE') {
-            setQueue(prev => prev.filter(item => item.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
+  // One call both keeps our queue entry alive and tries to pair us
+  const poll = useCallback(async () => {
+    const { data, error } = await supabase.rpc('join_queue');
+    if (error) {
+      console.error('join_queue failed — did you run supabase-migration-v3.sql?', error);
+      setError('Matchmaking is unavailable. Ask the admin to run supabase-migration-v3.sql.');
+      searchingRef.current = false;
+      setIsSearching(false);
+      return;
+    }
+    if (data && searchingRef.current) await openGame(data as string);
+  }, [openGame]);
 
-    // Subscribe to game invitations
-    const gameSubscription = supabase
-      .channel('game_invitations')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'games',
-          filter: `black_player_id=eq.${user.id}`,
-        },
-        async (payload) => {
-          const game = payload.new as Game;
-          setCurrentGame(game);
-          setIsSearching(false);
-          
-          // Remove from queue
-          await supabase
-            .from('matchmaking_queue')
-            .delete()
-            .eq('user_id', user.id);
-        }
-      )
-      .subscribe();
-
-    // Fetch current queue
-    const fetchQueue = async () => {
-      const { data } = await supabase
-        .from('matchmaking_queue')
-        .select('*')
-        .order('created_at', { ascending: true });
-      if (data) setQueue(data);
-    };
-    
-    fetchQueue();
-
-    return () => {
-      queueSubscription.unsubscribe();
-      gameSubscription.unsubscribe();
-    };
-  }, [user, configured]);
-
-  // While searching, retry every 3s and leave the queue if the page is closed
   useEffect(() => {
     if (!isSearching || !user || !configured) return;
+    const started = Date.now();
     const interval = setInterval(() => {
-      if (searchingRef.current) findMatch();
-    }, 3000);
-    const leave = () => {
-      supabase.from('matchmaking_queue').delete().eq('user_id', user.id);
-    };
+      setWaitedSeconds(Math.floor((Date.now() - started) / 1000));
+      if (searchingRef.current) poll();
+    }, POLL_MS);
+    const leave = () => { supabase.rpc('leave_queue'); };
     window.addEventListener('beforeunload', leave);
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', leave);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSearching, user?.id, configured]);
+  }, [isSearching, user, configured, poll]);
 
-  // Leave the queue when the component unmounts during a search
+  // Leave the queue if the page is left during a search
   useEffect(() => () => {
-    if (searchingRef.current && user) supabase.from('matchmaking_queue').delete().eq('user_id', user.id).then(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    if (searchingRef.current) supabase.rpc('leave_queue').then(() => {});
+  }, []);
 
   const joinQueue = async () => {
     if (!user || !configured) return;
-
-    try {
-      setIsSearching(true);
-
-      // Check if already in queue
-      const { data: existing } = await supabase
-        .from('matchmaking_queue')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (existing) {
-        setIsSearching(true);
-        // Try to match again in case it was missed
-        await findMatch();
-        return;
-      }
-
-      // Add to queue
-      const { error } = await supabase
-        .from('matchmaking_queue')
-        .insert({
-          user_id: user.id,
-          username: user.username,
-          elo_rating: user.elo_rating,
-        });
-
-      if (error) throw error;
-
-      // Try to find a match
-      await findMatch();
-    } catch (error) {
-      console.error('Error joining queue:', error);
-      setIsSearching(false);
-    }
-  };
-
-  const findMatch = async () => {
-    if (!user || !configured) return;
-
-    try {
-      // Find a suitable opponent (within 150 Elo points, sorted by oldest first)
-      const { data: opponents } = await supabase
-        .from('matchmaking_queue')
-        .select('*')
-        .neq('user_id', user.id)
-        .gte('elo_rating', user.elo_rating - 150)
-        .lte('elo_rating', user.elo_rating + 150)
-        .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()) // ignore abandoned entries
-        .order('created_at', { ascending: true })
-        .limit(1);
-
-      if (opponents && opponents.length > 0) {
-        const opponent = opponents[0];
-
-        // PREVENT RACE CONDITION: Check if a game was already created between us
-        const { data: existingGames } = await supabase
-          .from('games')
-          .select('*')
-          .eq('status', 'playing')
-          .in('white_player_id', [user.id, opponent.user_id])
-          .in('black_player_id', [user.id, opponent.user_id]);
-
-        if (existingGames && existingGames.length > 0) {
-          setCurrentGame(existingGames[0]);
-          setIsSearching(false);
-          
-          // Remove from queue
-          await supabase
-            .from('matchmaking_queue')
-            .delete()
-            .eq('user_id', user.id);
-          return;
-        }
-
-        // Both players poll: only the one with the smaller id creates the game, so it is created once.
-        // The other one receives it through the game_invitations subscription.
-        if (user.id > opponent.user_id) return;
-
-        // Create game (we are White, opponent is Black)
-        const { data: game, error: gameError } = await supabase
-          .from('games')
-          .insert({
-            white_player_id: user.id,
-            black_player_id: opponent.user_id,
-            white_player_username: user.username,
-            black_player_username: opponent.username,
-            fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-            pgn: '',
-            status: 'playing',
-            winner: null,
-          })
-          .select()
-          .single();
-
-        if (gameError) throw gameError;
-
-        // Remove both players from queue
-        await supabase
-          .from('matchmaking_queue')
-          .delete()
-          .in('user_id', [user.id, opponent.user_id]);
-
-        setCurrentGame(game);
-        setIsSearching(false);
-      }
-    } catch (error) {
-      console.error('Error finding match:', error);
-    }
+    setError(null);
+    setWaitedSeconds(0);
+    searchingRef.current = true;
+    setIsSearching(true);
+    await poll();
   };
 
   const leaveQueue = async () => {
-    if (!user || !configured) return;
-
-    try {
-      await supabase
-        .from('matchmaking_queue')
-        .delete()
-        .eq('user_id', user.id);
-
-      setIsSearching(false);
-    } catch (error) {
-      console.error('Error leaving queue:', error);
-    }
+    searchingRef.current = false;
+    setIsSearching(false);
+    if (configured) await supabase.rpc('leave_queue');
   };
 
+  // Back in the lobby with a game still running (page reloaded): offer to resume it
+  const findOngoingGame = useCallback(async () => {
+    if (!user || !configured) return null;
+    const { data } = await supabase
+      .from('games')
+      .select('*')
+      .eq('status', 'playing')
+      .or(`white_player_id.eq.${user.id},black_player_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data as Game | null) ?? null;
+  }, [user, configured]);
+
   return {
-    queue,
     currentGame,
     isSearching,
+    waitedSeconds,
+    // Same formula as join_queue()
+    ratingWindow: Math.min(800, 100 + 10 * waitedSeconds),
+    error,
     joinQueue,
     leaveQueue,
     setCurrentGame,
+    findOngoingGame,
     isConfigured: configured,
   };
 };

@@ -38,11 +38,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authState, setAuthState] = useState<AuthState>({ user: null, loading: true, error: null });
   const configured = isSupabaseConfigured();
 
-  const loadProfile = useCallback(async (userId: string) => {
-    // The profile row is created by a database trigger right after sign-up: retry briefly
+  const loadProfile = useCallback(async (userId: string, email = '') => {
+    // The profile row is created by a database trigger right after sign-up: retry briefly.
+    // E-mail addresses are private (migration v3): ours comes from the session.
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if (profile) return toUser(profile);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, username, elo_rating, games_played, wins, losses, draws')
+        .eq('id', userId)
+        .maybeSingle();
+      if (profile) return toUser({ ...profile, email });
       await new Promise((r) => setTimeout(r, 700));
     }
     return null;
@@ -61,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let active = true;
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const user = session?.user ? await loadProfile(session.user.id) : null;
+      const user = session?.user ? await loadProfile(session.user.id, session.user.email) : null;
       if (active) setAuthState({ user, loading: false, error: null });
     }).catch((error) => {
       if (active) setAuthState({ user: null, loading: false, error: error.message });
@@ -69,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const user = await loadProfile(session.user.id);
+        const user = await loadProfile(session.user.id, session.user.email);
         if (active) setAuthState({ user, loading: false, error: null });
       } else if (event === 'SIGNED_OUT') {
         setAuthState({ user: null, loading: false, error: null });
@@ -144,9 +149,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = useCallback(async () => {
     const id = authState.user?.id;
     if (!configured || !id) return;
-    const user = await loadProfile(id);
+    const user = await loadProfile(id, authState.user?.email);
     if (user) setAuthState((prev) => ({ ...prev, user }));
-  }, [configured, authState.user?.id, loadProfile]);
+  }, [configured, authState.user?.id, authState.user?.email, loadProfile]);
 
   return (
     <AuthContext.Provider value={{ ...authState, signUp, signIn, signOut, refreshProfile }}>

@@ -3,6 +3,7 @@ import { Chess } from 'chess.js';
 import type { GameState, GameStatus, GameResult, Difficulty, Square, PieceColor } from '../types/chess';
 import { useStockfish, LEVEL_SETTINGS } from './useStockfish';
 import { soundEffects } from '../utils/soundEffects';
+import { getGameResult } from '../lib/gameResult';
 
 interface UseChessGameHook {
   gameState: GameState;
@@ -20,16 +21,6 @@ interface UseChessGameHook {
 
 const PLAYER_COLOR: PieceColor = 'w';
 const AI_COLOR: PieceColor = 'b';
-
-// Determine whether the position on the board ends the game, and how
-export const getGameResult = (chess: Chess): GameResult | null => {
-  if (chess.isCheckmate()) return { winner: chess.turn() === 'w' ? 'b' : 'w', reason: 'checkmate' };
-  if (chess.isStalemate()) return { winner: null, reason: 'stalemate' };
-  if (chess.isInsufficientMaterial()) return { winner: null, reason: 'insufficient' };
-  if (chess.isThreefoldRepetition()) return { winner: null, reason: 'threefold' };
-  if (chess.isDraw()) return { winner: null, reason: 'fifty-moves' };
-  return null;
-};
 
 const getStatus = (chess: Chess): GameStatus => {
   if (chess.isCheckmate()) return 'checkmate';
