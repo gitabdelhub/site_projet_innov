@@ -12,6 +12,7 @@ interface ChessBoardProps {
   onPromoteSelect: (pieceType: string) => void;
   onPromoteCancel: () => void;
   flipped?: boolean;
+  targets?: string[]; // squares marked with a star (lessons)
 }
 
 export const ChessBoard: React.FC<ChessBoardProps> = ({
@@ -21,8 +22,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   onPromoteSelect,
   onPromoteCancel,
   flipped = false,
+  targets = [],
 }) => {
-  const chess = new Chess(gameState.fen);
+  // Lesson boards may hold a lone piece without kings
+  const chess = new Chess(gameState.fen, { skipValidation: true });
   const board = chess.board();
 
   const ranksList = flipped ? [...RANKS].reverse() : RANKS;
@@ -56,6 +59,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                 isPossibleMove={isPossibleMove}
                 isLastMove={isLastMove}
                 isCheck={isCheck}
+                isTarget={targets.includes(square)}
                 onClick={() => onSquareClick(square)}
               />
             );

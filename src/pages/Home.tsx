@@ -13,6 +13,7 @@ const STEPS: { title: MessageKey; text: MessageKey }[] = [
 ];
 
 const FEATURES: { icon: IconName; title: MessageKey; text: MessageKey; to: string; cta: MessageKey }[] = [
+  { icon: 'graduation', title: 'home.featLearnTitle', text: 'home.featLearnText', to: '/learn', cta: 'home.featLearnCta' },
   { icon: 'chart', title: 'home.featLevelTitle', text: 'home.featLevelText', to: '/coach/elo', cta: 'home.featLevelCta' },
   { icon: 'puzzle', title: 'home.featPuzzlesTitle', text: 'home.featPuzzlesText', to: '/coach/tactics', cta: 'home.featPuzzlesCta' },
   { icon: 'users', title: 'home.featPlayTitle', text: 'home.featPlayText', to: '/game', cta: 'home.featPlayCta' },
@@ -86,7 +87,7 @@ export const Home = () => {
 
       {/* Features */}
       <section className="max-w-6xl mx-auto px-6 pb-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {FEATURES.map((f) => (
             <Link
               key={f.to}

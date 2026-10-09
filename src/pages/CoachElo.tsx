@@ -8,6 +8,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Icon } from '../components/Icon';
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { localSan } from '../i18n/san';
+import { explainMove } from '../lib/explain';
 
 // An error whose message is a translation key (so it follows the language switch)
 class KeyedError extends Error {
@@ -26,6 +27,8 @@ interface GameReport {
   side: Side;
   actualElo: number | null; // rating written in the PGN, when there is one
   moves: AnalyzedMove[];
+  fens: string[]; // position before each move
+  best: (string | null)[]; // the engine's move in each position (UCI)
   summary: SideSummary;
   estimate: number;
 }
@@ -186,6 +189,8 @@ export const CoachElo: React.FC = () => {
         side: sideToRate,
         actualElo: rating > 0 ? rating : null,
         moves,
+        fens,
+        best: [...job.bestMoves],
         summary: summarize(moves, sideToRate),
         estimate: predictElo(eloFeatures({ moves, side: sideToRate, result })),
       });
@@ -446,18 +451,31 @@ export const CoachElo: React.FC = () => {
             {report.games.some((g) => g.moves.some((m) => m.color === g.side && (m.category === 'mistake' || m.category === 'blunder'))) && (
               <div className="bg-bg-card border border-gray-200 rounded-2xl p-6 shadow-sm">
                 <h3 className="font-bold text-text-primary mb-3">{t('elo.keyMoments')}</h3>
-                <ul className="space-y-1.5 text-sm">
+                <ul className="space-y-2 text-sm">
                   {report.games.flatMap((g, gi) =>
                     g.moves.map((m, i) =>
                       m.color === g.side && (m.category === 'mistake' || m.category === 'blunder') ? (
-                        <li key={`${gi}-${i}`} className="flex justify-between gap-4">
-                          <span className="font-mono text-text-primary">
-                            {report.games.length > 1 && <span className="text-text-secondary">{t('elo.gameN', { n: gi + 1 })} · </span>}
-                            {Math.floor(i / 2) + 1}{m.color === 'w' ? '.' : '...'} {localSan(m.san, lang)}
-                          </span>
-                          <span className={m.category === 'blunder' ? 'text-red-500 font-bold' : 'text-orange-500 font-bold'}>
-                            {t(m.category === 'blunder' ? 'review.cat.blunder' : 'review.cat.mistake')} (−{(m.loss / 100).toFixed(1)})
-                          </span>
+                        <li key={`${gi}-${i}`} className="border-b border-gray-100 last:border-0 pb-2">
+                          <div className="flex justify-between gap-4">
+                            <span className="font-mono text-text-primary">
+                              {report.games.length > 1 && <span className="text-text-secondary">{t('elo.gameN', { n: gi + 1 })} · </span>}
+                              {Math.floor(i / 2) + 1}{m.color === 'w' ? '.' : '...'} {localSan(m.san, lang)}
+                            </span>
+                            <span className={m.category === 'blunder' ? 'text-red-500 font-bold' : 'text-orange-500 font-bold'}>
+                              {t(m.category === 'blunder' ? 'review.cat.blunder' : 'review.cat.mistake')} (−{(m.loss / 100).toFixed(1)})
+                            </span>
+                          </div>
+                          {(() => {
+                            const ex = explainMove(g.fens[i], m, g.best[i] ?? null, t);
+                            return (
+                              <p className="text-xs text-text-secondary leading-relaxed mt-1">
+                                {ex.facts.join(' ')}
+                                {ex.better && (
+                                  <span className="text-green-700 font-semibold"> {t('explain.better', { move: localSan(ex.better.san, lang) })} {ex.better.why.join(' ')}</span>
+                                )}
+                              </p>
+                            );
+                          })()}
                         </li>
                       ) : null
                     )

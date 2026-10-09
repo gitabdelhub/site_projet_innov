@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import type { Move } from '../types/chess';
 import { evaluatePositions, judgeMoves, formatEval, type AnalyzedMove, type MoveCategory } from '../lib/analysis';
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { localSan } from '../i18n/san';
+import { explainMove } from '../lib/explain';
 import { Icon } from './Icon';
 
 type Category = MoveCategory;
@@ -57,6 +58,8 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
 }) => {
   const { t, lang } = useI18n();
   const [analysis, setAnalysis] = useState<AnalyzedMove[] | null>(null);
+  // Positions before each move and the engine's choice there, for the explanations
+  const [positions, setPositions] = useState<{ fens: string[]; best: (string | null)[] } | null>(null);
   const [progress, setProgress] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const analyzedKeyRef = useRef<string>('');
@@ -81,6 +84,7 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
     job.promise.then((evals) => {
       if (evals.length !== fens.length) return;
       analyzedKeyRef.current = movesKey;
+      setPositions({ fens, best: [...job.bestMoves] });
       setAnalysis(judgeMoves(moves.map((m) => m.san), evals));
     });
     return job.cancel;
@@ -146,6 +150,10 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
   };
 
   const current = rewindIndex !== null && rewindIndex > 0 && analysis ? analysis[rewindIndex - 1] : null;
+  const explanation = useMemo(
+    () => (current && positions && rewindIndex ? explainMove(positions.fens[rewindIndex - 1], current, positions.best[rewindIndex - 1] ?? null, t) : null),
+    [current, positions, rewindIndex, t]
+  );
   const countFor = (color: 'w' | 'b', cat: Category) =>
     analysis ? analysis.filter((a, i) => (i % 2 === 0 ? 'w' : 'b') === color && a.category === cat).length : 0;
   const opponentColor = playerColor === 'w' ? 'b' : 'w';
@@ -203,7 +211,20 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
                   {formatEval(current.evalAfter)}
                 </span>
               </div>
-              <p className="text-xs text-text-primary leading-relaxed">{t(COMMENTS[current.category])}</p>
+              {explanation ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-text-primary leading-relaxed">{explanation.facts.join(' ')}</p>
+                  <p className="text-xs font-semibold text-text-primary leading-relaxed">{explanation.verdict}</p>
+                  {explanation.better && (
+                    <p className="text-xs text-text-primary leading-relaxed bg-green-500/5 border border-green-500/20 rounded-lg px-2 py-1.5">
+                      <span className="font-bold text-green-700">{t('explain.better', { move: localSan(explanation.better.san, lang) })}</span>{' '}
+                      {explanation.better.why.join(' ')}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-text-primary leading-relaxed">{t(COMMENTS[current.category])}</p>
+              )}
             </div>
           ) : (
             <div className="bg-bg-darker/40 border border-gray-100 rounded-xl p-3 text-xs text-text-secondary">

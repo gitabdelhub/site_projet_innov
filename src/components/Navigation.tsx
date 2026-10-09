@@ -70,6 +70,7 @@ export const Navigation = () => {
 
           <div className="hidden md:flex items-center gap-7">
             <Link to="/" className={linkClass('/')}>{t('nav.home')}</Link>
+            <Link to="/learn" className={linkClass('/learn')}>{t('nav.learn')}</Link>
             <Link to="/game" className={linkClass('/game')}>{t('nav.play')}</Link>
             <div className="relative" ref={coachRef}>
               <button
@@ -136,6 +137,7 @@ export const Navigation = () => {
           <div className="md:hidden pb-4 space-y-1 border-t border-gray-200/50 pt-3">
             {[
               { to: '/', label: t('nav.home'), icon: 'home' as IconName },
+              { to: '/learn', label: t('nav.learn'), icon: 'graduation' as IconName },
               { to: '/game', label: t('nav.play'), icon: 'board' as IconName },
               ...COACH_LINKS.map((l) => ({ to: l.to, label: t(l.label), icon: l.icon })),
               { to: '/leaderboard', label: t('nav.leaderboard'), icon: 'trophy' as IconName },

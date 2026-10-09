@@ -15,6 +15,11 @@ describe('progress sync between the browser and the account', () => {
     expect(merged.updatedAt).toBe(20);
   });
 
+  it('keeps lessons finished on either device', () => {
+    const merged = mergeProgress(p({ lessonsDone: ['rook'], updatedAt: 1 }), p({ lessonsDone: ['rook', 'knight'], updatedAt: 2 }));
+    expect(merged.lessonsDone.sort()).toEqual(['knight', 'rook']);
+  });
+
   it('takes the current streak from the most recent device', () => {
     expect(mergeProgress(p({ streak: 7, updatedAt: 5 }), p({ streak: 0, updatedAt: 9 })).streak).toBe(0);
   });

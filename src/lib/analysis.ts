@@ -40,6 +40,8 @@ const moveAccuracy = (winBefore: number, winAfter: number) => {
 export const evaluatePositions = (fens: string[], onProgress?: (done: number) => void) => {
   const worker = new Worker(ENGINE_URL);
   let cancelled = false;
+  // The engine's preferred move in each position (UCI, e.g. "g1f3"), null when none
+  const bestMoves: (string | null)[] = [];
 
   const evaluate = (fen: string) =>
     new Promise<number>((resolve) => {
@@ -56,7 +58,11 @@ export const evaluatePositions = (fens: string[], onProgress?: (done: number) =>
           const n = parseInt(mate[1], 10);
           score = n > 0 ? MATE_SCORE - n : -MATE_SCORE - n;
         }
-        if (line.startsWith('bestmove')) resolve(whiteToMove ? score : -score);
+        if (line.startsWith('bestmove')) {
+          const best = line.split(' ')[1];
+          bestMoves.push(best && best !== '(none)' ? best : null);
+          resolve(whiteToMove ? score : -score);
+        }
       };
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go depth ${ANALYSIS_DEPTH} movetime ${ANALYSIS_MAX_MS}`);
@@ -69,9 +75,10 @@ export const evaluatePositions = (fens: string[], onProgress?: (done: number) =>
     for (let i = 0; i < fens.length; i++) {
       if (cancelled) break;
       const chess = new Chess(fens[i]);
-      if (chess.isCheckmate()) evals.push(chess.turn() === 'w' ? -MATE_SCORE : MATE_SCORE);
-      else if (chess.isDraw()) evals.push(0);
-      else evals.push(await evaluate(fens[i]));
+      if (chess.isCheckmate() || chess.isDraw()) {
+        evals.push(chess.isCheckmate() ? (chess.turn() === 'w' ? -MATE_SCORE : MATE_SCORE) : 0);
+        bestMoves.push(null);
+      } else evals.push(await evaluate(fens[i]));
       onProgress?.(i + 1);
     }
     worker.terminate();
@@ -80,6 +87,7 @@ export const evaluatePositions = (fens: string[], onProgress?: (done: number) =>
 
   return {
     promise,
+    bestMoves,
     cancel: () => {
       cancelled = true;
       worker.terminate();

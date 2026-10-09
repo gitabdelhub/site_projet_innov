@@ -12,6 +12,7 @@ export interface Progress {
   positionAttempts: number;
   positionCorrect: number;
   gamesAnalyzed: number;
+  lessonsDone: string[]; // ids of finished beginner lessons
   updatedAt: number; // ms, last change
   resetAt: number; // ms, last "reset my progress"
 }
@@ -29,6 +30,7 @@ export const EMPTY_PROGRESS: Progress = {
   positionAttempts: 0,
   positionCorrect: 0,
   gamesAnalyzed: 0,
+  lessonsDone: [],
   updatedAt: 0,
   resetAt: 0,
 };
@@ -81,6 +83,7 @@ export const mergeProgress = (a: Progress, b: Progress): Progress => {
   return {
     solvedPuzzles: union(x.solvedPuzzles, y.solvedPuzzles),
     solvedPositions: union(x.solvedPositions, y.solvedPositions),
+    lessonsDone: union(x.lessonsDone, y.lessonsDone),
     puzzleAttempts: Math.max(x.puzzleAttempts, y.puzzleAttempts),
     puzzleFirstTry: Math.max(x.puzzleFirstTry, y.puzzleFirstTry),
     positionAttempts: Math.max(x.positionAttempts, y.positionAttempts),

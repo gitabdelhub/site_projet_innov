@@ -10,6 +10,7 @@ interface SquareProps {
   isPossibleMove: boolean;
   isLastMove: boolean;
   isCheck: boolean;
+  isTarget?: boolean;
   onClick: () => void;
 }
 
@@ -20,6 +21,7 @@ export const Square: React.FC<SquareProps> = ({
   isPossibleMove,
   isLastMove,
   isCheck,
+  isTarget = false,
   onClick,
 }) => {
   const color = getSquareColor(square);
@@ -44,6 +46,13 @@ export const Square: React.FC<SquareProps> = ({
       aria-label={square}
     >
       {piece && <Piece piece={piece} />}
+
+      {/* Star to collect (lessons) */}
+      {isTarget && !piece && (
+        <svg viewBox="0 0 24 24" className="absolute w-[55%] h-[55%] pointer-events-none drop-shadow-sm animate-[pulse_2.4s_ease-in-out_infinite]" aria-hidden="true">
+          <path d="M12 3.8l2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z" fill="#f5b301" stroke="#b07d00" strokeWidth="1.2" strokeLinejoin="round" />
+        </svg>
+      )}
       
       {/* Possible move dot (empty square) */}
       {isPossibleMove && !piece && (

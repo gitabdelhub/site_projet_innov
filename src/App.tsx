@@ -17,6 +17,9 @@ const CoachTactics = lazy(() => import('./pages/CoachTactics').then((m) => ({ de
 const CoachPosition = lazy(() => import('./pages/CoachPosition').then((m) => ({ default: m.CoachPosition })));
 const CoachThemes = lazy(() => import('./pages/CoachThemes').then((m) => ({ default: m.CoachThemes })));
 
+const Learn = lazy(() => import('./pages/Learn').then((m) => ({ default: m.Learn })));
+const LearnLesson = lazy(() => import('./pages/Learn').then((m) => ({ default: m.LearnLesson })));
+
 const PageLoader = () => (
   <div className="flex justify-center py-24">
     <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
@@ -38,6 +41,8 @@ function App() {
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/game" element={<Game />} />
+              <Route path="/learn" element={<Learn />} />
+              <Route path="/learn/:id" element={<LearnLesson />} />
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/elo" element={<CoachElo />} />
               <Route path="/coach/tactics" element={<CoachTactics />} />
