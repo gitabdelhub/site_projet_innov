@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - name: Type check
         run: npx tsc --noEmit
       - name: Unit tests (server move check, analysis, Elo model)

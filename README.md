@@ -1,285 +1,126 @@
-# Chess Game - Projet Innovation
+# Chess Hub
 
-Une application d'échecs moderne et complète avec entraînement par IA, analyse de parties et prédiction Elo.
+Site d'échecs qui sert à **jouer et à progresser** : parties contre Stockfish, parties classées en ligne, entraînement tactique, et **estimation du niveau Elo à partir de vos propres parties**, avec une marge d'erreur mesurée.
+
+Tout le calcul lourd (moteur d'échecs, estimation du niveau) se fait dans le navigateur du joueur : le site coûte presque rien à héberger.
+
+---
+
+## Ce qui le distingue, chiffres à l'appui
+
+| Point | Preuve |
+|---|---|
+| **Estimation du niveau sur un vrai modèle**, entraîné sur **3 769 parties Lichess classées** (de 600 à 3 000 Elo) | Testé sur des joueurs que le modèle n'a jamais vus : erreur moyenne **362 points sur une partie**, contre 501 pour l'ancienne formule et 604 sans information ([ml/RESULTS.md](ml/RESULTS.md)) |
+| **La marge d'erreur est affichée honnêtement** | Le site écrit « probablement entre X et Y » ; l'intervalle vient des mesures, il se resserre quand on analyse plusieurs parties |
+| **Même moteur qu'à l'entraînement** | Stockfish 18 dans le navigateur : ses évaluations s'écartent de moins de 10 centipions de celles de Lichess (l'ancien Stockfish 10 s'en écartait de 50) |
+| **Jeu en ligne impossible à truquer** | Chaque coup est vérifié par le serveur ; la pendule, le résultat et l'Elo sont décidés par la base de données, jamais par le navigateur |
+| **335 puzzles** (20 faits main + 315 notés de la base Lichess) | Classés par thème et par niveau ; tous rejoués automatiquement par les tests |
+| **Vérifié automatiquement** | 21 tests, vérification des puzzles par Stockfish, compilation : à chaque envoi de code ([.github/workflows/ci.yml](.github/workflows/ci.yml)) |
 
 ## Fonctionnalités
 
-### Jeu Solo (vs IA)
-- ✅ **Règles d'échecs complètes** : Roque, en passant, promotion de pion
-- ✅ **Validation des coups** : Validation en temps réel avec chess.js
-- ✅ **Détection d'échec et mat** : Détection automatique des conditions de fin de partie
-- ✅ **IA Stockfish** : Jouez contre un moteur d'échecs puissant
-- ✅ **Historique des coups** : Suivi de tous les coups en notation algébrique
-- ✅ **Design responsive** : Interface moderne adaptée à tous les écrans
-- ✅ **Animations fluides** : Mouvements de pièces et feedback visuel
+**Jouer**
+- Contre Stockfish 18, 5 niveaux, pendule, retour en arrière, promotion au choix, revue de la partie avec l'avis du moteur.
+- En ligne (avec un compte) : recherche d'adversaire de niveau proche (l'écart accepté s'élargit avec l'attente), pendule 10 min + 2 s par coup, chat, classement Elo, reprise d'une partie après rechargement de la page, annulation d'une partie jamais commencée.
 
-### Multijoueur
-- ✅ **Authentification** : Inscription et connexion par email
-- ✅ **Système Elo** : Calcul dynamique du classement
-- ✅ **Classement** : Classement en temps réel des meilleurs joueurs
-- ✅ **Matchmaking** : Trouvez des adversaires de niveau similaire
-- ✅ **Multijoueur en temps réel** : Jouez avec synchronisation en direct
-- ✅ **Chat en jeu** : Communiquez avec votre adversaire
-- ✅ **Profils utilisateurs** : Suivez vos statistiques et historique
+**Progresser (AI Coach)**
+- **Elo Prediction** : importez vos 1, 3, 5 ou 10 dernières parties Lichess ou Chess.com (ou collez des PGN). Le site analyse chaque coup, estime votre niveau, affiche la marge d'erreur, votre précision par phase de jeu et vos erreurs clés. Pour les parties importées, il affiche aussi le vrai classement à côté de l'estimation.
+- **Tactic Trainer** : 335 puzzles, 7 thèmes, 3 niveaux, indices, solution animée, séries.
+- **Position Trainer** : choisir le bon coup dans des positions d'ouverture types.
+- **Game Rewinder** : revoir une partie coup par coup avec la qualité de chaque coup.
 
-### AI Coach
-- ✅ **Game Rewinder** : rejouez vos parties coup par coup
-  - Lecture automatique (pause possible), liste de coups cliquable
-  - Raccourcis clavier : ← → Début Fin Espace Échap
-  - Analyse réelle par Stockfish : précision, best / inaccuracy / mistake / blunder
-- ✅ **Tactic Trainer** : 20 puzzles répartis en 7 thèmes (mat du couloir, fourchettes, clouages, pièges d'ouverture, sacrifices de dame…)
-  - Combinaisons en plusieurs coups avec réponses de l'adversaire
-  - Indice, solution animée, progression et série sauvegardées dans le navigateur
-  - Tous les puzzles sont vérifiés par Stockfish : `npm run verify:puzzles`
-- ✅ **Theme Trainer** : chaque thème ouvre ses puzzles, avec la progression par thème
-- ✅ **Position Trainer** : 6 positions d'ouverture, plusieurs bons coups acceptés
-- ✅ **Elo Prediction** : estimation du niveau à partir d'une partie
-  - Import de la dernière partie Lichess par pseudo, ou PGN collé
-  - Analyse Stockfish de chaque coup : précision (formule Lichess), perte moyenne (ACPL), erreurs clés
-  - Modèle ML Python optionnel (`VITE_ML_API_URL`), sinon estimation à partir de l'ACPL
+## Sécurité du jeu en ligne
 
-## Tech Stack
+Le navigateur ne peut que **lire** les parties. Tout ce qui les modifie passe par le serveur :
 
-- **Frontend**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Chess Logic**: chess.js 1.x
-- **AI Engine**: Stockfish 10 (asm.js, Web Worker)
-- **Backend**: Supabase (Authentication, Database, Real-time)
-- **Styling**: Tailwind CSS
-- **Deployment**: Vercel (ready)
+| Action | Qui décide | Où |
+|---|---|---|
+| Jouer un coup | Le serveur rejoue la partie avec chess.js et refuse tout coup illégal ou joué hors de son tour | [api/move.ts](api/move.ts), [server/onlineMove.ts](server/onlineMove.ts) |
+| Mat, pat, nulle | Le serveur, pas le joueur | idem |
+| Temps écoulé | L'horloge de la base de données | `claim_timeout` dans [supabase-migration-v3.sql](supabase-migration-v3.sql) |
+| Créer une partie | Le matchmaking de la base, avec le vrai classement du joueur | `join_queue` |
+| Changer l'Elo | Une fonction qu'aucun joueur ne peut appeler | `finish_game_internal` |
+| Adresses e-mail | Invisibles pour les autres joueurs | droits par colonne sur `profiles` |
 
 ## Installation
 
-### Prerequisites
+### 1. En local, sans base de données (le plus simple)
 
-1. **Create a Supabase Project**:
-   - Go to [supabase.com](https://supabase.com) and create a free account
-   - Create a new project
-   - Wait for the project to be ready (2-3 minutes)
-
-2. **Set up the Database**:
-   - Go to the SQL Editor in your Supabase dashboard
-   - Copy and run the SQL script from `supabase-setup.sql`
-   - This will create all necessary tables and set up Row Level Security
-   - **Then run `supabase-migration-v2.sql`** (required for online games): it records results
-     and Elo changes server-side and prevents players from editing their own rating
-
-3. **Get your Supabase Credentials**:
-   - Go to Project Settings → API
-   - Copy your Project URL and anon/public key
-
-4. **Configure Environment Variables**:
-   - Copy `.env.example` to `.env`
-   - Add your Supabase credentials:
-   ```env
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   # Optional: Python Elo model (ml_backend/app.py)
-   # VITE_ML_API_URL=http://localhost:5000
-   ```
-   Without Supabase credentials the site runs in local mode: solo play, coach and
-   Elo prediction work, online play is disabled.
-
-5. **Install Dependencies**:
 ```bash
 npm install
-```
-
-6. **Start the Development Server**:
-```bash
 npm run dev
 ```
 
-7. **Open your browser** to `http://localhost:3000`
+Ouvrez http://localhost:3000. Jeu contre l'ordinateur, entraînement et prédiction Elo fonctionnent. Le jeu en ligne et le classement sont désactivés (le site l'indique clairement).
 
-## Building for Production
+### 2. Avec le jeu en ligne (Supabase)
 
-```bash
-npm run build
-```
+1. Créez un projet sur [supabase.com](https://supabase.com).
+2. Dans l'éditeur SQL, exécutez **dans cet ordre** : `supabase-setup.sql`, `supabase-migration-v2.sql`, `supabase-migration-v3.sql`.
+3. Copiez `.env.example` en `.env` et remplissez les trois valeurs (Project Settings → API) :
+   ```env
+   VITE_SUPABASE_URL=...
+   VITE_SUPABASE_ANON_KEY=...
+   SUPABASE_SERVICE_ROLE_KEY=...   # secrète : utilisée seulement par le serveur (/api/move)
+   ```
+4. `npm run dev` : la fonction serveur `/api/move` tourne aussi en local.
 
-The built files will be in the `dist` directory.
+### 3. Mise en ligne sur Vercel
 
-## How to Play
+1. Importez le dépôt GitHub dans Vercel (projet Vite détecté automatiquement).
+2. Ajoutez les trois variables d'environnement ci-dessus dans Settings → Environment Variables.
+3. Déployez. Le dossier `api/` devient automatiquement une fonction serveur.
 
-### Single Player (vs AI)
-1. Click on "vs AI" in the header
-2. **Click on a piece** to select it and see possible moves highlighted
-3. **Click on a highlighted square** to move the piece
-4. **Use the controls** on the right to:
-   - Start a new game
-   - Undo the last move
-   - Adjust AI difficulty (Beginner to Expert)
-5. **Watch the move history** panel to track the game progress
-
-### Multiplayer
-1. Click on "Multiplayer" in the header
-2. **Sign in or create an account** if you haven't already
-3. Click "Find Match" to search for an opponent
-4. Wait for matchmaking to find a suitable opponent
-5. Play the game with real-time synchronization
-6. Use the chat to communicate with your opponent
-
-## Difficulty Levels
-
-| Level | Approx. Elo | Engine settings |
-|---|---|---|
-| 1 – Beginner | ~600 | Skill 0, depth 1, 35% random moves |
-| 2 – Easy | ~1000 | Skill 3, depth 3, 10% random moves |
-| 3 – Medium | ~1400 | Skill 8, depth 6 |
-| 4 – Hard | ~1900 | Skill 14, depth 10 |
-| 5 – Expert | ~2400 | Skill 20, depth 18 |
-
-Settings live in `LEVEL_SETTINGS` (`src/hooks/useStockfish.ts`).
-
-## Elo Rating System
-
-The game uses the standard Elo rating algorithm:
-- Starting rating: 1200
-- K-factor: 32 (standard for most players)
-- Ratings update automatically after each completed game
-- Both players' ratings are adjusted based on the result
-
-## Game Rules Implemented
-
-- Standard piece movements (King, Queen, Rook, Bishop, Knight, Pawn)
-- Castling (both kingside and queenside)
-- En passant captures
-- Pawn promotion (choice of queen, rook, bishop or knight)
-- Check detection with visual indicator
-- Checkmate detection, with a game-over screen (win / loss / draw and the reason)
-- Stalemate detection
-- Draw by repetition and insufficient material
-
-## Database Schema
-
-The application uses the following Supabase tables:
-
-- **profiles**: User profiles with ratings and statistics
-- **games**: Game records with FEN, PGN, and status
-- **matchmaking_queue**: Real-time matchmaking queue
-- **messages**: In-game chat messages
-
-## Project Structure
-
-```
-chess-game/
-├── src/
-│   ├── components/      # React components
-│   │   ├── ChessBoard.tsx
-│   │   ├── Square.tsx
-│   │   ├── Piece.tsx
-│   │   ├── MoveHistory.tsx
-│   │   ├── GameControls.tsx
-│   │   ├── AuthModal.tsx
-│   │   ├── UserProfile.tsx
-│   │   ├── Leaderboard.tsx
-│   │   ├── MatchmakingPanel.tsx
-│   │   └── Chat.tsx
-│   ├── hooks/          # Custom React hooks
-│   │   ├── useChessGame.ts
-│   │   ├── useStockfish.ts
-│   │   ├── useAuth.ts
-│   │   ├── useMatchmaking.ts
-│   │   └── useMultiplayerGame.ts
-│   ├── lib/            # Utility libraries
-│   │   ├── supabase.ts
-│   │   └── elo.ts
-│   ├── utils/          # Utility functions
-│   │   ├── pieceUnicode.ts
-│   │   └── boardUtils.ts
-│   ├── types/          # TypeScript types
-│   │   ├── chess.ts
-│   │   └── auth.ts
-│   ├── App.tsx         # Main app component
-│   ├── main.tsx        # Entry point
-│   ├── index.css       # Global styles
-│   └── vite-env.d.ts   # Vite environment types
-├── public/             # Static assets
-├── supabase-setup.sql  # Database setup script
-├── .env.example        # Environment variables template
-├── index.html          # HTML template
-├── package.json        # Dependencies
-├── tailwind.config.js  # Tailwind configuration
-├── tsconfig.json       # TypeScript configuration
-└── vite.config.ts      # Vite configuration
-```
-
-## Déploiement sur Vercel
-
-### Étape 1 : Push sur GitHub
+## Vérifier le projet
 
 ```bash
-# Initialiser git si ce n'est pas déjà fait
-git init
-
-# Ajouter tous les fichiers
-git add .
-
-# Commit
-git commit -m "Initial commit - Chess Game with AI Coach"
-
-# Ajouter le repository distant
-git remote add origin https://github.com/gitabdelhub/site_projet_innov.git
-
-# Push sur GitHub
-git branch -M main
-git push -u origin main
+npm test                 # 21 tests : contrôle des coups côté serveur, analyse, modèle Elo, puzzles
+npm run verify:puzzles   # chaque puzzle fait main est vérifié par Stockfish
+npm run build            # vérification des types + build de production
 ```
 
-### Étape 2 : Déploiement sur Vercel
+## Le modèle Elo : comment il est fait
 
-1. **Créer un compte Vercel** : Allez sur [vercel.com](https://vercel.com) et créez un compte gratuit
+Tout est reproductible avec les scripts du dossier [ml/](ml/) :
 
-2. **Importer le projet** :
-   - Cliquez sur "Add New Project"
-   - Sélectionnez votre repository GitHub `gitabdelhub/site_projet_innov`
-   - Vercel détectera automatiquement que c'est un projet Vite
+```bash
+node ml/collect-lichess.mjs              # 1. télécharge des parties classées déjà analysées par Lichess (API publique)
+npx vite-node ml/build-features.ts       # 2. calcule les indicateurs avec le MÊME code que le site
+python ml/train.py                       # 3. entraîne, mesure, exporte src/data/eloModel.json et ml/RESULTS.md
+npx vite-node ml/browser-engine-check.ts # 4. refait l'analyse avec le moteur du site, pour mesurer en conditions réelles
+```
 
-3. **Configurer les variables d'environnement** :
-   - Dans les paramètres du projet Vercel, allez dans "Settings" → "Environment Variables"
-   - Ajoutez les variables suivantes :
-     ```
-     VITE_SUPABASE_URL=your_supabase_project_url
-     VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-     ```
+- **Ce que le modèle regarde** : la perte moyenne par coup, la précision, les erreurs dans les positions encore équilibrées, la qualité de l'ouverture, et la qualité de jeu de l'adversaire (on joue en général contre quelqu'un de son niveau).
+- **Ce qu'il ne regarde pas exprès** : la cadence de jeu. Dans notre échantillon, elle dépendait de la façon dont les joueurs ont été trouvés et gonflait artificiellement les scores. Elle est donc exclue.
+- **Mesure honnête** : validation croisée par joueur. Les joueurs testés ne sont jamais vus pendant l'entraînement.
+- **Le site et Python donnent les mêmes nombres** : un test le vérifie ([tests/eloModel.test.ts](tests/eloModel.test.ts)).
 
-4. **Déployer** :
-   - Cliquez sur "Deploy"
-   - Attendez que le déploiement se termine (environ 2-3 minutes)
-   - Vercel vous donnera une URL comme `https://site-projet-innov.vercel.app`
+### Limites connues
 
-### Étape 3 : Partager avec vos collègues
+- Une seule partie contient peu d'information : l'estimation reste large (environ ±600 points pour 80 % des cas). Elle se resserre avec plusieurs parties, mais un écart propre à chaque joueur subsiste (environ ±450 avec 10 parties).
+- L'estimation est un classement « style Lichess », plus élevé que le classement FIDE pour la plupart des joueurs.
+- La progression d'entraînement est gardée dans le navigateur (pas encore sur le compte).
 
-Une fois déployé sur Vercel, vos collègues pourront accéder au site via l'URL fournie par Vercel. Vous pouvez aussi :
+## Structure
 
-- **Personnaliser le domaine** : Dans Vercel, allez dans "Settings" → "Domains" pour ajouter un domaine personnalisé
-- **Partager l'URL** : Envoyez simplement l'URL Vercel à vos collègues
-- **Mettre à jour automatiquement** : Chaque push sur GitHub déclenchera automatiquement un nouveau déploiement
+```
+api/move.ts               fonction serveur Vercel : vérifie et enregistre un coup en ligne
+server/onlineMove.ts      règle de vérification d'un coup (testée)
+src/lib/analysis.ts       analyse Stockfish d'une partie (précision, perte par coup)
+src/lib/eloFeatures.ts    indicateurs d'une partie (partagés par le site et l'entraînement)
+src/lib/eloModel.ts       prédiction Elo dans le navigateur
+src/data/                 puzzles, positions, modèle Elo exporté
+ml/                       collecte, entraînement et mesures du modèle
+supabase-*.sql            base de données, droits et fonctions serveur
+tests/                    tests automatiques
+```
 
-### Note sur le Backend ML
+## Licence et crédits
 
-Le backend Python pour la prédiction Elo (`ml_backend/app.py`) n'est pas inclus dans le déploiement Vercel car Vercel ne supporte pas nativement Python. Pour utiliser la prédiction ML en production :
+Logiciel libre sous **GNU GPL v3** ([LICENSE](LICENSE)), licence imposée par Stockfish.
 
-1. **Option 1 : Utiliser un service comme Render ou Railway**
-   - Déployez le backend Python sur Render.com ou Railway.app
-   - Définissez la variable `VITE_ML_API_URL` (dans Vercel) avec l'URL du backend déployé
-
-2. **Option 2 : Utiliser uniquement la méthode de fallback**
-   - Le site fonctionne déjà avec la méthode de fallback
-   - Les collègues pourront utiliser le site sans le backend ML
-
-### Pour vos collègues
-
-Vos collègues pourront :
-- Jouer aux échecs solo vs IA
-- Jouer en multijoueur (si Supabase est configuré)
-- Utiliser le Game Rewinder pour analyser leurs parties
-- S'entraîner avec le Tactic Trainer et Position Trainer
-- Voir la prédiction Elo (avec la méthode de fallback)
-
-Ils n'ont besoin que de l'URL Vercel pour accéder au site !
-
-## License
-
-MIT License - feel free to use this project for learning or as a base for your own chess application.
+- Moteur : [Stockfish 18](https://stockfishchess.org) (GPL v3), version WebAssembly de Nathan Rugg / Chess.com
+- Pièces : « cburnett » de Colin M.L. Burnett (CC BY-SA 3.0)
+- Puzzles notés : [base de puzzles Lichess](https://database.lichess.org/#puzzles) (CC0)
+- Parties d'entraînement du modèle : API publique de [Lichess](https://lichess.org)
+- Logique d'échecs : [chess.js](https://github.com/jhlywa/chess.js) (BSD-2)
