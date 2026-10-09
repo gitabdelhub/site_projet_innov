@@ -32,6 +32,9 @@ export interface Game {
   black_ms?: number;
   increment_ms?: number;
   turn_started_at?: string;
+  // Migration v5: friend and training games do not change ratings
+  rated?: boolean;
+  mode?: 'ranked' | 'friend' | 'training';
   created_at: string;
   updated_at: string;
 }

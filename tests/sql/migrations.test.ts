@@ -62,6 +62,7 @@ beforeAll(async () => {
   await db.exec(script('supabase-migration-v2.sql'));
   await db.exec(script('supabase-migration-v3.sql'));
   await db.exec(script('supabase-migration-v4.sql'));
+  await db.exec(script('supabase-migration-v5.sql'));
   await db.exec(`
     INSERT INTO auth.users VALUES ('${A}', 'alice@example.com', '{"username":"alice"}');
     INSERT INTO auth.users VALUES ('${B}', 'bob@example.com', '{"username":"bob"}');
@@ -183,5 +184,96 @@ describe('database security (migration v3)', () => {
     expect((await as('authenticated', B, 'SELECT * FROM learning_progress')).rows).toHaveLength(0);
     await fails(as('authenticated', B, `INSERT INTO learning_progress (user_id, data) VALUES ('${A}', '{}')`));
     await fails(as('anon', null, 'SELECT * FROM learning_progress'));
+  });
+});
+
+describe('playing and learning together (migration v5)', () => {
+  it('runs the migration twice without error', async () => {
+    await db.exec(script('supabase-migration-v5.sql'));
+  });
+
+  it('starts a friend game from an invitation, without touching ratings', async () => {
+    const code = (await as('authenticated', A, `SELECT create_invite('friend', 5, 3, 'w') AS c`)).rows[0].c as string;
+    expect(code).toMatch(/^[A-Z2-9]{6}$/);
+    expect((await as('authenticated', B, `SELECT resolve_code($1) AS k`, [code.toLowerCase()])).rows[0].k).toBe('invite');
+
+    const info = (await as('authenticated', B, `SELECT * FROM invite_info($1)`, [code])).rows[0];
+    expect(info).toMatchObject({ host_username: 'alice_2', mode: 'friend', minutes: 5, is_host: false, game_id: null });
+    await fails(as('authenticated', A, `SELECT accept_invite($1)`, [code]));
+
+    const g = (await as('authenticated', B, `SELECT accept_invite($1) AS g`, [code])).rows[0].g;
+    expect((await as('authenticated', B, `SELECT accept_invite($1) AS g`, [code])).rows[0].g).toBe(g); // reopening the link
+    await fails(as('authenticated', C, `SELECT accept_invite($1)`, [code]));
+    expect((await as('authenticated', A, `SELECT * FROM invite_info($1)`, [code])).rows[0].game_id).toBe(g);
+
+    const started = await game(g);
+    expect(started).toMatchObject({ white_player_id: A, black_player_id: B, rated: false, mode: 'friend', white_ms: 300000, increment_ms: 3000 });
+
+    const [ea, eb] = [await elo(A), await elo(B)];
+    for (const [player, san] of [[A, 'f3'], [B, 'e5'], [A, 'g4'], [B, 'Qh4#']] as const) expect(await serverMove(g, player, san)).toBe('ok');
+    expect((await game(g)).winner).toBe(B);
+    expect([await elo(A), await elo(B)]).toEqual([ea, eb]);
+  });
+
+  it('keeps invitations private and lets only the host cancel', async () => {
+    const code = (await as('authenticated', A, `SELECT create_invite('training', 15, 0, 'random') AS c`)).rows[0].c;
+    await fails(as('authenticated', B, 'SELECT * FROM invites'));
+    await as('authenticated', B, `SELECT cancel_invite($1)`, [code]);
+    expect((await as('authenticated', B, `SELECT resolve_code($1) AS k`, [code])).rows[0].k).toBe('invite');
+    await as('authenticated', A, `SELECT cancel_invite($1)`, [code]);
+    expect((await as('authenticated', B, `SELECT resolve_code($1) AS k`, [code])).rows[0].k).toBeNull();
+  });
+
+  it('runs a puzzle duel and counts each answer once', async () => {
+    const code = (await as('authenticated', A, `SELECT create_duel(ARRAY['br1','fk1','li-07ZWX']) AS c`)).rows[0].c;
+    await fails(as('authenticated', A, `SELECT create_duel(ARRAY['ok','bad id!','x'])`));
+    const id = (await as('authenticated', B, `SELECT join_duel($1) AS d`, [code])).rows[0].d;
+    await fails(as('authenticated', C, `SELECT join_duel($1)`, [code]));
+    expect((await as('authenticated', C, 'SELECT * FROM duels')).rows).toHaveLength(0);
+
+    // Answers before the countdown ends are ignored
+    await as('authenticated', A, `SELECT duel_answer($1, 0, true)`, [id]);
+    expect((await as('authenticated', A, 'SELECT host_step FROM duels')).rows[0].host_step).toBe(0);
+    await db.query(`UPDATE duels SET started_at = NOW() - INTERVAL '1 second' WHERE id = $1`, [id]);
+
+    await as('authenticated', A, `SELECT duel_answer($1, 0, true)`, [id]);
+    await as('authenticated', A, `SELECT duel_answer($1, 0, true)`, [id]); // same answer twice
+    await as('authenticated', A, `SELECT duel_answer($1, 2, true)`, [id]); // skipping ahead
+    await fails(as('authenticated', C, `SELECT duel_answer($1, 0, true)`, [id]));
+    let d = (await as('authenticated', B, 'SELECT * FROM duels')).rows[0];
+    expect([d.host_step, d.host_score]).toEqual([1, 1]);
+
+    for (let i = 1; i < 3; i++) await as('authenticated', A, `SELECT duel_answer($1, ${i}, ${i === 1})`, [id]);
+    for (let i = 0; i < 3; i++) await as('authenticated', B, `SELECT duel_answer($1, ${i}, true)`, [id]);
+    d = (await as('authenticated', A, 'SELECT * FROM duels')).rows[0];
+    expect(d).toMatchObject({ host_score: 2, guest_score: 3, status: 'finished' });
+    expect(d.host_finished_at).toBeTruthy();
+  });
+
+  it('shares a study board between its members only', async () => {
+    const code = (await as('authenticated', A, `SELECT create_study($1) AS c`, ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'])).rows[0].c;
+    await fails(as('authenticated', A, `SELECT create_study('not a position')`));
+    expect((await as('authenticated', B, 'SELECT * FROM study_rooms')).rows).toHaveLength(0);
+    await fails(as('authenticated', B, `SELECT study_update($1, ARRAY['e4'], 1, 0)`, [code]));
+
+    await as('authenticated', B, `SELECT join_study($1)`, [code]);
+    expect((await as('authenticated', B, 'SELECT * FROM study_rooms')).rows).toHaveLength(1);
+    expect((await as('authenticated', B, `SELECT study_update($1, ARRAY['e4'], 1, 0) AS v`, [code])).rows[0].v).toBe(1);
+    expect((await as('authenticated', A, `SELECT study_update($1, ARRAY['d4'], 1, 0) AS v`, [code])).rows[0].v).toBe(-1); // stale
+    expect((await as('authenticated', A, `SELECT study_update($1, ARRAY['e4','e5'], 2, 1) AS v`, [code])).rows[0].v).toBe(2);
+    await fails(as('authenticated', A, `SELECT study_update($1, ARRAY['e4'], 5, 2)`, [code]));
+    await fails(as('authenticated', A, `SELECT study_update($1, ARRAY['drop table'], 1, 2)`, [code]));
+    const room = (await as('authenticated', A, 'SELECT moves, cursor, updated_by FROM study_rooms')).rows[0];
+    expect(room).toEqual({ moves: ['e4', 'e5'], cursor: 2, updated_by: 'alice_2' });
+    expect((await as('authenticated', C, 'SELECT * FROM study_members')).rows).toHaveLength(0);
+    await fails(as('authenticated', A, `INSERT INTO study_members (code, user_id, username) VALUES ($1, '${C}', 'carol')`, [code]));
+  });
+
+  it('still rates ranked games after v5', async () => {
+    const before = await elo(A);
+    const g = (await db.query<{ id: string }>(`INSERT INTO games (white_player_id, black_player_id, white_player_username, black_player_username, status)
+      VALUES ('${A}', '${B}', 'a', 'b', 'playing') RETURNING id`)).rows[0].id;
+    await as('authenticated', B, `SELECT resign_game('${g}')`);
+    expect(await elo(A)).toBeGreaterThan(before);
   });
 });

@@ -22,6 +22,11 @@ const LearnLesson = lazy(() => import('./pages/Learn').then((m) => ({ default: m
 
 const CoachMistakes = lazy(() => import('./pages/CoachMistakes').then((m) => ({ default: m.CoachMistakes })));
 
+const Together = lazy(() => import('./pages/Together').then((m) => ({ default: m.Together })));
+const InvitePage = lazy(() => import('./pages/Together').then((m) => ({ default: m.InvitePage })));
+const DuelPage = lazy(() => import('./pages/Duel').then((m) => ({ default: m.DuelPage })));
+const StudyPage = lazy(() => import('./pages/Study').then((m) => ({ default: m.StudyPage })));
+
 const PageLoader = () => (
   <div className="flex justify-center py-24">
     <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
@@ -45,6 +50,10 @@ function App() {
               <Route path="/game" element={<Game />} />
               <Route path="/learn" element={<Learn />} />
               <Route path="/learn/:id" element={<LearnLesson />} />
+              <Route path="/together" element={<Together />} />
+              <Route path="/invite/:code" element={<InvitePage />} />
+              <Route path="/duel/:code" element={<DuelPage />} />
+              <Route path="/study/:code" element={<StudyPage />} />
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/elo" element={<CoachElo />} />
               <Route path="/coach/tactics" element={<CoachTactics />} />

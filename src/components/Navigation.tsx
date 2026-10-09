@@ -112,6 +112,7 @@ export const Navigation = () => {
                 </div>
               )}
             </div>
+            <Link to="/together" className={linkClass('/together')}>{t('nav.together')}</Link>
             <Link to="/leaderboard" className={linkClass('/leaderboard')}>{t('nav.leaderboard')}</Link>
           </div>
 
@@ -151,6 +152,7 @@ export const Navigation = () => {
               { to: '/learn', label: t('nav.learn'), icon: 'graduation' as IconName },
               { to: '/game', label: t('nav.play'), icon: 'board' as IconName },
               ...COACH_LINKS.map((l) => ({ to: l.to, label: t(l.label), icon: l.icon })),
+              { to: '/together', label: t('nav.together'), icon: 'users' as IconName },
               { to: '/leaderboard', label: t('nav.leaderboard'), icon: 'trophy' as IconName },
               { to: accountLink.to, label: accountLink.label, icon: 'user' as IconName },
             ].map((l) => (

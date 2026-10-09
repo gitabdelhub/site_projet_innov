@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { MoveHistory } from '../components/MoveHistory';
@@ -18,6 +19,9 @@ import type { GameResult } from '../types/chess';
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { Icon } from '../components/Icon';
 import { recordAiGame, suggestedLevel } from '../lib/adaptive';
+import { CoachHint } from '../components/CoachHint';
+import { supabase } from '../lib/supabase';
+import type { Game as OnlineGame } from '../types/auth';
 import { updateProgress, useProgress } from '../lib/progress';
 
 const REASON_KEYS: Record<GameResult['reason'], MessageKey> = {
@@ -151,6 +155,23 @@ export const Game = () => {
   // 3. Online Mode Game Hooks
   const activeMpGameId = matchmaking.currentGame?.id || '';
   const mpGame = useMultiplayerGame(activeMpGameId);
+
+  // Opened from a friend invitation: /game?game=<id>
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedGameId = searchParams.get('game');
+  useEffect(() => {
+    if (!linkedGameId || !user) return;
+    supabase.from('games').select('*').eq('id', linkedGameId).maybeSingle().then(({ data }) => {
+      if (data) {
+        matchmaking.setCurrentGame(data as OnlineGame);
+        setGameMode('online');
+      }
+      const next = new URLSearchParams(searchParams);
+      next.delete('game');
+      setSearchParams(next, { replace: true });
+    });
+  }, [linkedGameId, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onlineGameMode = (mpGame.game ?? matchmaking.currentGame)?.mode ?? 'ranked';
 
   // Active game variables depending on mode
   const isAiMode = gameMode === 'ai';
@@ -503,6 +524,18 @@ export const Game = () => {
                 </div>
               </div>
             </div>
+
+            <Link
+              to="/together"
+              className="group mt-4 sm:mt-6 bg-bg-card border border-gray-200/80 rounded-2xl p-4 sm:p-5 shadow-sm flex items-center gap-4 hover:border-accent/40 hover:shadow-md transition-all"
+            >
+              <span className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent shrink-0"><Icon name="swords" className="w-6 h-6" /></span>
+              <span className="flex-1">
+                <span className="block font-bold text-text-primary group-hover:text-accent transition-colors">{t('game.friendsTitle')}</span>
+                <span className="block text-xs sm:text-sm text-text-secondary">{t('game.friendsText')}</span>
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-accent">{t('game.friendsCta')} <Icon name="arrowRight" className="w-4 h-4" /></span>
+            </Link>
           </div>
         )}
 
@@ -721,7 +754,9 @@ export const Game = () => {
               {/* Sidebar Header - Only visible on desktop when game is active */}
               {isGameActive && (
                 <div className="hidden lg:flex items-center justify-between border-b border-gray-200/50 pb-2 mb-1">
-                  <span className="text-sm font-bold text-text-primary">{t(isAiMode ? 'game.soloTitle' : 'game.onlineTitle')}</span>
+                  <span className="text-sm font-bold text-text-primary">
+                    {t(isAiMode ? 'game.soloTitle' : onlineGameMode === 'ranked' ? 'game.onlineTitle' : onlineGameMode === 'training' ? 'together.trainingGame' : 'together.friendGame')}
+                  </span>
                   <button
                     onClick={handleExitGame}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-3 py-1.5 rounded-lg border border-gray-200/50 transition-colors"
@@ -786,6 +821,13 @@ export const Game = () => {
                         )}
                       </p>
                     </div>
+
+                    {isOnlineMode && onlineGameMode !== 'ranked' && (
+                      <p className="text-[11px] text-center text-text-secondary -mt-2 mb-3">{t('together.unrated')}</p>
+                    )}
+                    {isOnlineMode && onlineGameMode === 'training' && !finalResult && (
+                      <div className="mb-3"><CoachHint fen={fen} disabled={turn !== userColor} /></div>
+                    )}
 
                     {isOnlineMode && mpGame.canAbort && (
                       <button
