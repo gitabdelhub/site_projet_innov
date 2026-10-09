@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { renderPieceSVG } from './PieceSVGs';
 
 interface PromotionModalProps {
@@ -14,19 +15,20 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
   onSelect,
   onClose,
 }) => {
+  const { t } = useI18n();
   if (!isOpen) return null;
 
-  const options = [
-    { type: 'q', label: 'Queen' },
-    { type: 'r', label: 'Rook' },
-    { type: 'b', label: 'Bishop' },
-    { type: 'n', label: 'Knight' },
+  const options: { type: string; label: MessageKey }[] = [
+    { type: 'q', label: 'piece.queen' },
+    { type: 'r', label: 'piece.rook' },
+    { type: 'b', label: 'piece.bishop' },
+    { type: 'n', label: 'piece.knight' },
   ];
 
   return (
     <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-30 animate-fade-in backdrop-blur-[2px]">
       <div className="bg-white rounded-xl shadow-2xl p-6 max-w-[280px] w-full text-center border border-gray-100 transform scale-100 transition-all duration-200">
-        <h3 className="text-gray-800 font-bold text-base mb-4">Promote Pawn</h3>
+        <h3 className="text-gray-800 font-bold text-base mb-4">{t('promotion.title')}</h3>
         <div className="grid grid-cols-2 gap-3 mb-4">
           {options.map((opt) => (
             <button
@@ -38,7 +40,7 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                 {renderPieceSVG(color, opt.type, "w-full h-full")}
               </div>
               <span className="text-xs text-text-primary font-semibold group-hover:text-accent transition-colors">
-                {opt.label}
+                {t(opt.label)}
               </span>
             </button>
           ))}
@@ -47,7 +49,7 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
           onClick={onClose}
           className="text-xs text-text-secondary hover:text-text-primary underline font-medium transition-colors"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
       </div>
     </div>

@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { AuthProvider } from './hooks/AuthProvider';
+import { I18nProvider } from './i18n/I18nProvider';
+import { ProgressSync } from './lib/progressSync';
 import { Home } from './pages/Home';
 
 // Pages are loaded on demand so the home page stays light
@@ -23,7 +25,9 @@ const PageLoader = () => (
 
 function App() {
   return (
+    <I18nProvider>
     <AuthProvider>
+      <ProgressSync />
       <Router>
         <div className="min-h-screen bg-bg-dark text-text-primary">
           <Navigation />
@@ -44,6 +48,7 @@ function App() {
         </div>
       </Router>
     </AuthProvider>
+    </I18nProvider>
   );
 }
 

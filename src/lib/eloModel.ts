@@ -30,4 +30,7 @@ export const errorFor = (games: number) => {
   return (model.error80 as Record<string, number>)[String(n)];
 };
 
-export const MODEL_INFO = model.trainedOn;
+// e.g. "3769 rated Lichess games (7538 player-games), ratings 421-3001"
+const info = model.trainedOn.match(/^(\d+)\D.*?(\d+)-(\d+)$/);
+export const MODEL_GAMES = info ? Number(info[1]) : 0;
+export const MODEL_RANGE = info ? { min: Number(info[2]), max: Number(info[3]) } : { min: 0, max: 0 };

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Message } from '../types/auth';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface ChatProps {
   messages: Message[];
@@ -8,6 +9,7 @@ interface ChatProps {
 }
 
 export const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId }) => {
+  const { t } = useI18n();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,12 +31,12 @@ export const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUser
 
   return (
     <div className="bg-bg-card rounded-lg p-4 flex flex-col h-96">
-      <h3 className="text-text-primary font-bold mb-3">Chat</h3>
+      <h3 className="text-text-primary font-bold mb-3">{t('game.tabChat')}</h3>
       
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 mb-3">
         {messages.length === 0 ? (
           <p className="text-text-secondary text-sm text-center italic">
-            No messages yet
+            {t('chat.empty')}
           </p>
         ) : (
           messages.map((message) => (
@@ -67,7 +69,7 @@ export const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUser
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={t('chat.placeholder')} maxLength={500}
           className="flex-1 bg-bg-darker text-text-primary rounded-lg px-4 py-2 border border-bg-darker focus:border-accent focus:outline-none text-sm"
         />
         <button
@@ -75,7 +77,7 @@ export const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUser
           disabled={!input.trim()}
           className="bg-accent hover:bg-accent-hover text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
         >
-          Send
+          {t('chat.send')}
         </button>
       </form>
     </div>

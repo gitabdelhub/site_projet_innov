@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '../i18n/I18nProvider';
 import { Chess } from 'chess.js';
 
 interface EvaluationBarProps {
@@ -6,6 +7,7 @@ interface EvaluationBarProps {
 }
 
 export const EvaluationBar: React.FC<EvaluationBarProps> = ({ fen }) => {
+  const { t } = useI18n();
   // Calculate material balance
   // wP: 1, wN: 3, wB: 3, wR: 5, wQ: 9
   const getMaterialScore = (): { score: number; text: string; whiteDiff: number } => {
@@ -63,8 +65,8 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({ fen }) => {
 
   return (
     <div
-      title="Material balance (pawn = 1, knight/bishop = 3, rook = 5, queen = 9)"
-      aria-label={`Material balance ${whiteDiff === 0 ? 'equal' : text}`}
+      title={t('material.title')}
+      aria-label={`${t('material.label')} ${whiteDiff === 0 ? '=' : text}`}
       className="w-6 md:w-8 h-full bg-gray-200 rounded-md overflow-hidden flex flex-col border border-gray-300 shadow-inner relative select-none"
     >
       {/* Black area (top portion of the bar) */}

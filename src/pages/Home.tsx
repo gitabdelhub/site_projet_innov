@@ -1,142 +1,121 @@
 import { Link } from 'react-router-dom';
-import { renderPieceSVG } from '../components/PieceSVGs';
+import { MiniBoard } from '../components/MiniBoard';
+import { Icon, type IconName } from '../components/Icon';
+import { useI18n, type MessageKey } from '../i18n/I18nProvider';
+
+// Two Knights Defence after 4.Ng5: both white pieces aim at f7
+const HERO_FEN = 'r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4';
+
+const STEPS: { title: MessageKey; text: MessageKey }[] = [
+  { title: 'home.step1Title', text: 'home.step1Text' },
+  { title: 'home.step2Title', text: 'home.step2Text' },
+  { title: 'home.step3Title', text: 'home.step3Text' },
+];
+
+const FEATURES: { icon: IconName; title: MessageKey; text: MessageKey; to: string; cta: MessageKey }[] = [
+  { icon: 'chart', title: 'home.featLevelTitle', text: 'home.featLevelText', to: '/coach/elo', cta: 'home.featLevelCta' },
+  { icon: 'puzzle', title: 'home.featPuzzlesTitle', text: 'home.featPuzzlesText', to: '/coach/tactics', cta: 'home.featPuzzlesCta' },
+  { icon: 'users', title: 'home.featPlayTitle', text: 'home.featPlayText', to: '/game', cta: 'home.featPlayCta' },
+];
 
 export const Home = () => {
+  const { t } = useI18n();
   return (
-    <div className="min-h-screen bg-bg-dark text-text-primary font-sans select-none">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-16 md:py-24 border-b border-gray-200/40 bg-gradient-to-b from-bg-card to-bg-dark">
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          
-          {/* Left Text */}
-          <div className="space-y-6 text-left animate-fade-in">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent/10 rounded-full text-accent text-xs font-extrabold uppercase tracking-wide">
-              👑 Chess Hub
-            </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-text-primary tracking-tight leading-tight">
-              Play Chess. <br />
-              <span className="text-accent">Your Way.</span>
+    <div className="min-h-screen bg-bg-dark text-text-primary font-sans">
+      {/* Hero */}
+      <section className="border-b border-gray-200/50 bg-gradient-to-b from-bg-card to-bg-dark">
+        <div className="max-w-6xl mx-auto px-6 py-14 md:py-20 grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-12 items-center">
+          <div className="space-y-6 animate-fade-in">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent/10 rounded-full text-accent text-xs font-bold">
+              <Icon name="graduation" className="w-4 h-4" />
+              {t('home.eyebrow')}
+            </span>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.08]">
+              {t('home.title1')}
+              <br />
+              <span className="text-accent">{t('home.title2')}</span>
             </h1>
-            <p className="text-text-secondary text-base md:text-lg leading-relaxed max-w-md">
-              A beautifully crafted chess experience. Practice against the engine, challenge friends, or compete in ranked matches.
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2">
+            <p className="text-text-secondary text-base md:text-lg leading-relaxed max-w-lg">{t('home.subtitle')}</p>
+            <div className="flex flex-wrap gap-3 pt-1">
+              <Link
+                to="/coach/elo"
+                className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover text-white font-bold py-3.5 px-6 rounded-xl text-sm transition-colors shadow-md shadow-accent/25"
+              >
+                {t('home.ctaAnalyze')}
+                <Icon name="arrowRight" className="w-4 h-4" />
+              </Link>
               <Link
                 to="/game"
-                className="bg-accent hover:bg-accent-hover text-white font-bold py-4 px-8 rounded-xl text-sm transition-all shadow-md shadow-accent/25 hover:-translate-y-0.5 active:translate-y-0"
+                className="inline-flex items-center gap-2 bg-bg-card hover:bg-bg-darker border border-gray-200 text-text-primary font-bold py-3.5 px-6 rounded-xl text-sm transition-colors"
               >
-                Play Now
-              </Link>
-              <Link
-                to="/leaderboard"
-                className="bg-bg-darker hover:bg-bg-card border border-gray-200/80 text-text-primary font-bold py-4 px-8 rounded-xl text-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
-              >
-                Leaderboard
+                <Icon name="board" className="w-4 h-4" />
+                {t('home.ctaPlay')}
               </Link>
             </div>
           </div>
 
-          {/* Right Visual: Styled mini chess board */}
-          <div className="hidden md:flex justify-center items-center relative animate-fade-in">
-            <div className="absolute inset-0 bg-accent/5 rounded-3xl blur-3xl -z-10" />
-            <div className="bg-bg-card border-4 border-gray-300 shadow-2xl rounded-2xl p-4 w-72 h-72 grid grid-cols-4 grid-rows-4 relative rotate-2 hover:rotate-0 transition-transform duration-500">
-              
-              {/* Board Mock squares */}
-              <div className="bg-board-light flex items-center justify-center relative">
-                <span className="absolute top-0.5 left-1 text-[8px] font-bold text-board-dark">8</span>
-                <span className="absolute bottom-0.5 right-1 text-[8px] font-bold text-board-dark">a</span>
-              </div>
-              <div className="bg-board-dark flex items-center justify-center">
-                <div className="w-[80%] h-[80%] opacity-90">{renderPieceSVG('b', 'n')}</div>
-              </div>
-              <div className="bg-board-light" />
-              <div className="bg-board-dark" />
-
-              <div className="bg-board-dark" />
-              <div className="bg-board-light flex items-center justify-center">
-                <div className="w-[80%] h-[80%] opacity-90">{renderPieceSVG('w', 'b')}</div>
-              </div>
-              <div className="bg-board-dark" />
-              <div className="bg-board-light" />
-
-              <div className="bg-board-light" />
-              <div className="bg-board-dark" />
-              <div className="bg-board-light flex items-center justify-center">
-                <div className="w-[80%] h-[80%] opacity-95">{renderPieceSVG('w', 'q')}</div>
-              </div>
-              <div className="bg-board-dark" />
-
-              <div className="bg-board-dark" />
-              <div className="bg-board-light" />
-              <div className="bg-board-dark" />
-              <div className="bg-board-light flex items-center justify-center">
-                <div className="w-[80%] h-[80%] opacity-90">{renderPieceSVG('b', 'k')}</div>
+          <div className="animate-fade-in">
+            <div className="bg-bg-card border border-gray-200/70 rounded-3xl p-4 shadow-xl shadow-black/5 max-w-sm mx-auto">
+              <MiniBoard fen={HERO_FEN} highlight={['g5', 'c4', 'f7']} flipped />
+              <div className="mt-4 flex gap-3 items-start bg-amber-50 border border-amber-200/70 rounded-2xl p-3.5">
+                <span className="mt-0.5 text-amber-700"><Icon name="bulb" className="w-5 h-5" /></span>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">{t('home.noteLabel')}</p>
+                  <p className="text-sm text-amber-950 leading-snug">{t('home.noteText')}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 max-w-5xl mx-auto px-6">
-        <h2 className="text-3xl font-extrabold text-text-primary text-center mb-12 tracking-tight">
-          Designed for Chess Players
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          
-          {/* Card 1 */}
-          <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-8 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent text-2xl mb-6">♟️</div>
-            <h3 className="text-lg font-bold text-text-primary mb-3">5 Difficulty Levels</h3>
-            <p className="text-text-secondary text-sm leading-relaxed">
-              From beginner to grandmaster level — pick your challenge and sharpen your skills with instant analysis and move undo.
-            </p>
-          </div>
-
-          {/* Card 2 */}
-          <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-8 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent text-2xl mb-6">⚔️</div>
-            <h3 className="text-lg font-bold text-text-primary mb-3">Play Real Opponents</h3>
-            <p className="text-text-secondary text-sm leading-relaxed">
-              Find your match instantly. Compete in ranked games, climb the leaderboard, and chat with your opponent in real time.
-            </p>
-          </div>
-
-          {/* Card 3 */}
-          <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-8 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent text-2xl mb-6">✨</div>
-            <h3 className="text-lg font-bold text-text-primary mb-3">Beautiful Experience</h3>
-            <p className="text-text-secondary text-sm leading-relaxed">
-              Classic tournament pieces, immersive sound effects, smooth animations, and a clean interface designed to let you focus on the game.
-            </p>
-          </div>
-        </div>
+      {/* How it works */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-2">{t('home.howTitle')}</h2>
+        <p className="text-text-secondary mb-10 max-w-2xl">{t('home.howText')}</p>
+        <ol className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {STEPS.map((s, i) => (
+            <li key={s.title} className="bg-bg-card border border-gray-200/70 rounded-2xl p-6">
+              <span className="font-mono text-xs font-bold text-accent">0{i + 1}</span>
+              <h3 className="text-lg font-bold mt-2 mb-2">{t(s.title)}</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">{t(s.text)}</p>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 bg-bg-card border-t border-gray-200/30 text-center px-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <h2 className="text-3xl font-extrabold text-text-primary tracking-tight">Ready to make your move?</h2>
-          <p className="text-text-secondary text-sm leading-relaxed">
-            Create an account to climb the rankings, or jump straight into a game — no setup needed.
-          </p>
-          <Link
-            to="/game"
-            className="bg-accent hover:bg-accent-hover text-white font-bold py-3.5 px-8 rounded-xl text-sm transition-all shadow-md shadow-accent/25 inline-block"
-          >
-            Start Playing
-          </Link>
+      {/* Features */}
+      <section className="max-w-6xl mx-auto px-6 pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {FEATURES.map((f) => (
+            <Link
+              key={f.to}
+              to={f.to}
+              className="group bg-bg-card border border-gray-200/70 rounded-2xl p-6 flex flex-col hover:border-accent/40 hover:shadow-md transition-all"
+            >
+              <span className="w-11 h-11 rounded-xl bg-accent/10 text-accent flex items-center justify-center mb-5">
+                <Icon name={f.icon} className="w-6 h-6" />
+              </span>
+              <h3 className="text-lg font-bold mb-2">{t(f.title)}</h3>
+              <p className="text-sm text-text-secondary leading-relaxed flex-1">{t(f.text)}</p>
+              <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-accent">
+                {t(f.cta)}
+                <Icon name="arrowRight" className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
 
       {/* Credits: required by the licences of the engine and the pieces */}
       <footer className="py-6 px-6 text-center text-[11px] text-text-secondary leading-relaxed border-t border-gray-200/40">
-        Chess Hub is free software under the GNU GPL v3. Engine:{' '}
-        <a className="underline" href="https://stockfishchess.org" target="_blank" rel="noreferrer">Stockfish</a> 18 (GPL v3, WebAssembly build by Nathan Rugg / Chess.com).
-        {' '}Pieces: cburnett by Colin M.L. Burnett (CC BY-SA 3.0). Rated puzzles: Lichess puzzle database (CC0). Elo model trained on public{' '}
-        <a className="underline" href="https://lichess.org" target="_blank" rel="noreferrer">Lichess</a> games.
+        {t('home.credits1')}{' '}
+        <a className="underline" href="https://stockfishchess.org" target="_blank" rel="noreferrer">Stockfish</a>{' '}
+        {t('home.credits2')}{' '}
+        <a className="underline" href="https://lichess.org" target="_blank" rel="noreferrer">Lichess</a>.
       </footer>
     </div>
   );
 };
+
 export default Home;

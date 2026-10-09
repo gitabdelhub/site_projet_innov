@@ -36,10 +36,12 @@ class ErrorBoundary extends React.Component<
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>♞</div>
           <h1 style={{ color: '#202020', fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-            Something went wrong
+            {navigator.language?.startsWith('fr') ? 'Un problème est survenu' : 'Something went wrong'}
           </h1>
           <p style={{ color: '#6b7280', marginBottom: '1.5rem', maxWidth: '400px' }}>
-            The app encountered an error. Check the browser console for details.
+            {navigator.language?.startsWith('fr')
+              ? 'Le site a rencontré une erreur. Recharge la page ; si le problème continue, préviens-nous.'
+              : 'The site ran into an error. Reload the page; if it keeps happening, let us know.'}
           </p>
           <pre style={{
             background: '#f3f2ee',
@@ -68,7 +70,7 @@ class ErrorBoundary extends React.Component<
               cursor: 'pointer',
             }}
           >
-            Reload Page
+            {navigator.language?.startsWith('fr') ? 'Recharger la page' : 'Reload the page'}
           </button>
         </div>
       );

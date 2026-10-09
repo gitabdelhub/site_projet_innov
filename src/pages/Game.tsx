@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { MoveHistory } from '../components/MoveHistory';
@@ -16,16 +15,18 @@ import { soundEffects } from '../utils/soundEffects';
 import { renderPieceSVG } from '../components/PieceSVGs';
 import { LEVEL_SETTINGS } from '../hooks/useStockfish';
 import type { GameResult } from '../types/chess';
+import { useI18n, type MessageKey } from '../i18n/I18nProvider';
+import { Icon } from '../components/Icon';
 
-const REASON_LABELS: Record<GameResult['reason'], string> = {
-  checkmate: 'by checkmate',
-  stalemate: 'by stalemate',
-  threefold: 'by threefold repetition',
-  insufficient: 'by insufficient material',
-  'fifty-moves': 'by the 50-move rule',
-  timeout: 'on time',
-  resignation: 'by resignation',
-  aborted: '— game aborted, ratings unchanged',
+const REASON_KEYS: Record<GameResult['reason'], MessageKey> = {
+  checkmate: 'game.reason.checkmate',
+  stalemate: 'game.reason.stalemate',
+  threefold: 'game.reason.threefold',
+  insufficient: 'game.reason.insufficient',
+  'fifty-moves': 'game.reason.fiftyMoves',
+  timeout: 'game.reason.timeout',
+  resignation: 'game.reason.resignation',
+  aborted: 'game.reason.aborted',
 };
 
 // Helper to calculate captured pieces from FEN
@@ -112,6 +113,7 @@ const formatTime = (secs: number) => {
 
 export const Game = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const configured = isSupabaseConfigured();
 
   // Mode: 'menu' | 'ai' | 'online'
@@ -136,7 +138,7 @@ export const Game = () => {
   // Clocks/Timers
   const [whiteTime, setWhiteTime] = useState(600); // 10 mins
   const [blackTime, setBlackTime] = useState(600);
-  const [timeWinner, setTimeWinner] = useState<string | null>(null);
+  const [timeWinner, setTimeWinner] = useState<'w' | 'b' | null>(null);
 
   // 1. VS AI Mode Hooks
   const aiGame = useChessGame();
@@ -222,7 +224,7 @@ export const Game = () => {
   useEffect(() => {
     if (timeWinner || (whiteTime > 0 && blackTime > 0)) return;
     const winner = whiteTime <= 0 ? 'b' : 'w';
-    setTimeWinner(winner === 'w' ? 'White wins on time' : 'Black wins on time');
+    setTimeWinner(winner);
     if (isAiMode) aiGame.declareResult({ winner, reason: 'timeout' });
     soundEffects.playGameOver(userColor === winner);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,11 +347,11 @@ export const Game = () => {
         reason: (mpGame.game.end_reason as GameResult['reason'] | null) ?? (mpGame.chess.isCheckmate() ? 'checkmate' : (getOnlineDrawReason() ?? 'resignation')),
       }
     : null;
-  const finalResult = aiResult ?? onlineResult ?? (timeWinner ? { winner: timeWinner.startsWith('White') ? 'w' : 'b', reason: 'timeout' } as GameResult : null);
+  const finalResult = aiResult ?? onlineResult ?? (timeWinner ? { winner: timeWinner, reason: 'timeout' } as GameResult : null);
   const gameOverText = finalResult
     ? (finalResult.winner === null
-        ? (finalResult.reason === 'aborted' ? 'Game aborted' : `🤝 Draw ${(REASON_LABELS[finalResult.reason] ?? "")}`)
-        : `${finalResult.winner === userColor ? '🏆 You win' : '💀 You lose'} ${(REASON_LABELS[finalResult.reason] ?? "")}`)
+        ? (finalResult.reason === 'aborted' ? t('game.aborted') : t('game.drawBy', { reason: t(REASON_KEYS[finalResult.reason]) }))
+        : t(finalResult.winner === userColor ? 'game.youWinBy' : 'game.youLoseBy', { reason: t(REASON_KEYS[finalResult.reason]) }))
     : null;
   const [dismissedResult, setDismissedResult] = useState<string | null>(null);
   const resultKey = finalResult ? `${finalResult.winner}-${finalResult.reason}-${moves.length}` : null;
@@ -359,7 +361,7 @@ export const Game = () => {
   const handleExitGame = () => {
     if (isOnlineMode) {
       if (mpGame.game?.status === 'playing') {
-        if (!window.confirm('Leaving now will resign the game. Continue?')) return;
+        if (!window.confirm(t('game.leaveConfirm'))) return;
         mpGame.resign();
       }
       matchmaking.setCurrentGame(null);
@@ -371,43 +373,40 @@ export const Game = () => {
   return (
     <div className={`min-h-screen bg-bg-dark px-2 sm:px-4 font-sans select-none ${isGameActive ? 'py-2 sm:py-3 lg:py-4' : 'py-4 sm:py-6'}`}>
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className={`flex items-center justify-between mb-3 sm:mb-4 border-b border-gray-200/50 pb-2 sm:pb-3 ${isGameActive ? 'lg:hidden' : ''}`}>
-          <Link to="/" className="text-lg sm:text-xl font-bold text-accent flex items-center gap-1.5 sm:gap-2 hover:opacity-85 transition-opacity">
-            <span className="text-xl sm:text-2xl">♞</span> Chess Hub
-          </Link>
-          {isGameActive && (
+        {/* Exit button on small screens (the sidebar has its own on desktop) */}
+        {isGameActive && (
+          <div className="flex justify-end mb-2 lg:hidden">
             <button
               onClick={handleExitGame}
-              className="text-xs sm:text-sm font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-gray-200/50 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-3 py-1.5 rounded-lg border border-gray-200/50 transition-colors"
             >
-              Exit Game
+              <Icon name="arrowLeft" className="w-4 h-4" /> {t('game.exit')}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 1. Main Menu Hub */}
         {gameMode === 'menu' && (
           <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 animate-fade-in py-8 sm:py-12">
             <div className="text-center">
-              <h1 className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight mb-2">Play Chess</h1>
-              <p className="text-text-secondary text-sm sm:text-base">Choose how you want to play</p>
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight mb-2">{t('game.menuTitle')}</h1>
+              <p className="text-text-secondary text-sm sm:text-base">{t('game.menuSubtitle')}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* vs Computer Card */}
               <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/15 rounded-xl flex items-center justify-center text-accent text-xl sm:text-2xl mb-3 sm:mb-4">♟️</div>
-                  <h3 className="text-lg sm:text-xl font-bold text-text-primary mb-2">Solo Practice</h3>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent mb-3 sm:mb-4"><Icon name="board" className="w-6 h-6" /></div>
+                  <h3 className="text-lg sm:text-xl font-bold text-text-primary mb-2">{t('game.soloTitle')}</h3>
                   <p className="text-text-secondary text-xs sm:text-sm mb-4 sm:mb-6 leading-relaxed">
-                    Sharpen your skills against a powerful chess engine. Choose your difficulty, take back moves, and improve your game.
+                    {t('game.soloText')}
                   </p>
                 </div>
 
                 <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-gray-100">
                   <div>
-                    <label className="block text-[10px] sm:text-xs font-bold text-text-secondary uppercase mb-2">Difficulty</label>
+                    <label className="block text-[10px] sm:text-xs font-bold text-text-secondary uppercase mb-2">{t('game.difficulty')}</label>
                     <select
                       value={aiGame.difficulty}
                       onChange={(e) => aiGame.setDifficulty(Number(e.target.value) as any)}
@@ -415,7 +414,7 @@ export const Game = () => {
                     >
                       {([1, 2, 3, 4, 5] as const).map((lvl) => (
                         <option key={lvl} value={lvl}>
-                          Level {lvl} - {LEVEL_SETTINGS[lvl].label} (Elo ~{LEVEL_SETTINGS[lvl].elo})
+                          {t('game.levelOption', { n: lvl, label: t(`level.${lvl}` as MessageKey), elo: LEVEL_SETTINGS[lvl].elo })}
                         </option>
                       ))}
                     </select>
@@ -429,7 +428,7 @@ export const Game = () => {
                     }}
                     className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-sm shadow-accent/25"
                   >
-                    Start Game
+                    {t('game.start')}
                   </button>
                 </div>
               </div>
@@ -437,10 +436,10 @@ export const Game = () => {
               {/* Online Multiplayer Card */}
               <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/15 rounded-xl flex items-center justify-center text-accent text-xl sm:text-2xl mb-3 sm:mb-4">⚔️</div>
-                  <h3 className="text-lg sm:text-xl font-bold text-text-primary mb-2">Challenge Players</h3>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent mb-3 sm:mb-4"><Icon name="users" className="w-6 h-6" /></div>
+                  <h3 className="text-lg sm:text-xl font-bold text-text-primary mb-2">{t('game.onlineTitle')}</h3>
                   <p className="text-text-secondary text-xs sm:text-sm mb-4 sm:mb-6 leading-relaxed">
-                    Find opponents at your level instantly. Compete in ranked matches, earn your rating, and climb the leaderboard.
+                    {t('game.onlineText')}
                   </p>
                 </div>
 
@@ -448,10 +447,10 @@ export const Game = () => {
                   {!configured ? (
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5">
                       <p className="text-amber-800 text-xs font-semibold mb-1 flex items-center gap-1.5">
-                        ⚠️ Supabase Config Required
+                        <Icon name="shield" className="w-4 h-4" /> {t('game.noDbTitle')}
                       </p>
                       <p className="text-amber-700/95 text-[11px] leading-relaxed">
-                        To test online mode, configure your <code className="bg-white/70 px-1 py-0.5 rounded font-mono">.env</code> file. Check the readme instructions for details.
+                        {t('game.noDbText')}
                       </p>
                     </div>
                   ) : !user ? (
@@ -459,12 +458,12 @@ export const Game = () => {
                       onClick={() => setAuthModalOpen(true)}
                       className="w-full bg-bg-dark border border-gray-200 hover:bg-bg-darker text-text-primary font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all"
                     >
-                      Sign In / Sign Up to Play
+                      {t('game.signInToPlay')}
                     </button>
                   ) : (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center bg-bg-dark border border-gray-200 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-[10px] sm:text-xs text-text-secondary font-medium">
-                        <span>My Rating:</span>
+                        <span>{t('game.myRating')}</span>
                         <span className="text-accent font-extrabold text-xs sm:text-sm">{user.elo_rating} Elo</span>
                       </div>
                       <button
@@ -476,7 +475,7 @@ export const Game = () => {
                         }}
                         className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 sm:py-3.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-sm shadow-accent/25"
                       >
-                        Enter Matchmaking Lobby
+                        {t('game.enterLobby')}
                       </button>
                     </div>
                   )}
@@ -490,7 +489,7 @@ export const Game = () => {
         {gameMode === 'online' && !matchmaking.currentGame && (
           <div className="max-w-md mx-auto py-16 text-center animate-fade-in space-y-6">
             <div className="bg-bg-card border border-gray-200 rounded-2xl p-8 shadow-sm space-y-6">
-              <h2 className="text-2xl font-bold text-text-primary">Find a Match</h2>
+              <h2 className="text-2xl font-bold text-text-primary">{t('game.findTitle')}</h2>
               
               {matchmaking.isSearching ? (
                 <div className="space-y-6 py-4">
@@ -502,21 +501,21 @@ export const Game = () => {
                   </div>
                   
                   <div className="space-y-1">
-                    <p className="text-text-primary font-bold text-sm">Searching for Opponent...</p>
-                    <p className="text-text-secondary text-xs">Matching within ±{matchmaking.ratingWindow} Elo · {matchmaking.waitedSeconds}s</p>
+                    <p className="text-text-primary font-bold text-sm">{t('game.searching')}</p>
+                    <p className="text-text-secondary text-xs">{t('game.window', { w: matchmaking.ratingWindow, s: matchmaking.waitedSeconds })}</p>
                   </div>
                   
                   <button
                     onClick={matchmaking.leaveQueue}
                     className="bg-danger/10 hover:bg-danger/20 text-danger font-bold text-xs py-2.5 px-6 rounded-xl transition-all border border-danger/20"
                   >
-                    Cancel Search
+                    {t('game.cancelSearch')}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <p className="text-text-secondary text-sm leading-relaxed">
-                    Click "Find Match" to search the matchmaking queue for players of a similar skill level.
+                    {t('game.findText')}
                   </p>
                   {matchmaking.error && (
                     <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-lg px-3 py-2">{matchmaking.error}</p>
@@ -525,7 +524,7 @@ export const Game = () => {
                     onClick={matchmaking.joinQueue}
                     className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-sm shadow-accent/25"
                   >
-                    Find Match
+                    {t('game.findMatch')}
                   </button>
                 </div>
               )}
@@ -535,7 +534,7 @@ export const Game = () => {
               onClick={() => setGameMode('menu')}
               className="text-text-secondary hover:text-text-primary text-xs underline font-medium"
             >
-              ← Back to Main Menu
+              {t('game.backToMenu')}
             </button>
           </div>
         )}
@@ -554,7 +553,7 @@ export const Game = () => {
                     </div>
                     <div>
                       <div className="font-bold text-sm text-text-primary flex items-center gap-1.5">
-                        {isAiMode ? `Engine · Level ${aiGame.difficulty}` : (isMpWhite ? matchmaking.currentGame?.black_player_username : matchmaking.currentGame?.white_player_username)}
+                        {isAiMode ? t('game.engineLevel', { n: aiGame.difficulty }) : (isMpWhite ? matchmaking.currentGame?.black_player_username : matchmaking.currentGame?.white_player_username)}
                         <span className="text-[10px] bg-bg-darker text-text-secondary px-1.5 py-0.5 rounded font-bold font-mono">
                           {isAiMode ? `~${LEVEL_SETTINGS[aiGame.difficulty].elo}` : ((isMpWhite ? mpGame.ratings.black : mpGame.ratings.white) ?? '…')}
                         </span>
@@ -595,13 +594,13 @@ export const Game = () => {
                             {finalResult?.winner === null ? '🤝' : finalResult?.winner === userColor ? '🏆' : '💀'}
                           </div>
                           <h3 className="text-xl font-extrabold text-gray-800 mb-1">
-                            {finalResult?.reason === 'aborted' ? 'Game aborted' : finalResult?.winner === null ? 'Draw' : finalResult?.winner === userColor ? 'You win!' : 'You lose'}
+                            {finalResult?.reason === 'aborted' ? t('game.aborted') : finalResult?.winner === null ? t('game.draw') : finalResult?.winner === userColor ? t('game.youWin') : t('game.youLose')}
                           </h3>
                           <p className="text-sm text-gray-500 mb-5">
                             {finalResult?.winner === null
-                              ? `Game drawn ${finalResult ? (REASON_LABELS[finalResult.reason] ?? "") : ''}`
-                              : `${finalResult?.winner === 'w' ? 'White' : 'Black'} wins ${finalResult ? (REASON_LABELS[finalResult.reason] ?? "") : ''}`}
-                            {' · '}{Math.ceil(moves.length / 2)} moves
+                              ? t('game.drawnBy', { reason: finalResult ? t(REASON_KEYS[finalResult.reason]) : '' })
+                              : t('game.sideWinsBy', { side: t(finalResult?.winner === 'w' ? 'common.white' : 'common.black'), reason: finalResult ? t(REASON_KEYS[finalResult.reason]) : '' })}
+                            {' · '}{t('game.movesCount', { n: Math.ceil(moves.length / 2) })}
                           </p>
                           <div className="space-y-2">
                             {isOnlineMode && (
@@ -609,7 +608,7 @@ export const Game = () => {
                                 onClick={() => { matchmaking.setCurrentGame(null); setIsRewindMode(false); setRewindIndex(null); }}
                                 className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-colors"
                               >
-                                Find a new match
+                                {t('game.newMatchCta')}
                               </button>
                             )}
                             {isAiMode && (
@@ -617,20 +616,20 @@ export const Game = () => {
                                 onClick={() => { aiGame.newGame(); resetClocks(); setIsRewindMode(false); setRewindIndex(null); }}
                                 className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-colors"
                               >
-                                Play again
+                                {t('game.playAgain')}
                               </button>
                             )}
                             <button
                               onClick={() => { setDismissedResult(resultKey); setActiveTab('analysis'); setIsRewindMode(true); setRewindIndex(0); }}
                               className="w-full bg-bg-darker hover:bg-bg-dark text-text-primary font-bold py-2.5 px-4 rounded-xl text-sm border border-gray-200 transition-colors"
                             >
-                              Review the game
+                              {t('game.review')}
                             </button>
                             <button
                               onClick={() => setDismissedResult(resultKey)}
                               className="text-xs text-gray-500 hover:text-gray-800 underline font-medium"
                             >
-                              Close
+                              {t('common.close')}
                             </button>
                           </div>
                         </div>
@@ -666,7 +665,7 @@ export const Game = () => {
                     </div>
                     <div>
                       <div className="font-bold text-sm text-text-primary flex items-center gap-1.5">
-                        {user ? user.username : 'Guest Player'}
+                        {user ? user.username : t('game.guest')}
                         <span className="text-[10px] bg-bg-darker text-text-secondary px-1.5 py-0.5 rounded font-bold font-mono">
                           {user ? user.elo_rating : '—'}
                         </span>
@@ -701,14 +700,12 @@ export const Game = () => {
               {/* Sidebar Header - Only visible on desktop when game is active */}
               {isGameActive && (
                 <div className="hidden lg:flex items-center justify-between border-b border-gray-200/50 pb-2 mb-1">
-                  <Link to="/" className="text-lg font-bold text-accent flex items-center gap-1.5 hover:opacity-85 transition-opacity">
-                    <span className="text-xl">♞</span> Chess Hub
-                  </Link>
+                  <span className="text-sm font-bold text-text-primary">{t(isAiMode ? 'game.soloTitle' : 'game.onlineTitle')}</span>
                   <button
                     onClick={handleExitGame}
-                    className="text-xs font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-3 py-1.5 rounded-lg border border-gray-200/50 transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary bg-bg-darker px-3 py-1.5 rounded-lg border border-gray-200/50 transition-colors"
                   >
-                    Exit Game
+                    <Icon name="arrowLeft" className="w-3.5 h-3.5" /> {t('game.exit')}
                   </button>
                 </div>
               )}
@@ -724,7 +721,7 @@ export const Game = () => {
                     activeTab === 'moves' ? 'bg-accent text-white shadow-xs' : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  Moves
+                  {t('game.tabMoves')}
                 </button>
                 {isOnlineMode && (
                   <button
@@ -733,7 +730,7 @@ export const Game = () => {
                       activeTab === 'chat' ? 'bg-accent text-white shadow-xs' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    Chat
+                    {t('game.tabChat')}
                   </button>
                 )}
                 <button
@@ -742,7 +739,7 @@ export const Game = () => {
                     activeTab === 'analysis' ? 'bg-accent text-white shadow-xs' : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  Analysis
+                  {t('game.tabAnalysis')}
                 </button>
               </div>
 
@@ -751,7 +748,7 @@ export const Game = () => {
                 <div className="space-y-4 flex flex-col flex-1">
                   {/* Game Controls Card */}
                   <div className="bg-bg-card border border-gray-200/80 rounded-xl p-4 shadow-sm">
-                    <h3 className="text-text-primary font-bold text-base mb-3 border-b border-gray-100 pb-2">Game Controls</h3>
+                    <h3 className="text-text-primary font-bold text-base mb-3 border-b border-gray-100 pb-2">{t('game.controls')}</h3>
                     
                     {/* Status Indicator */}
                     <div className="text-center py-3 bg-bg-darker rounded-xl border border-gray-200/40 mb-4 flex flex-col items-center justify-center">
@@ -760,10 +757,10 @@ export const Game = () => {
                       }`}>
                         {gameOverText ? gameOverText : (
                           <>
-                            {status === 'check' && '⚠️ Check! '}
+                            {status === 'check' && `${t('game.check')} `}
                             {isAiMode
-                              ? (turn === aiGame.playerColor ? 'Your turn' : '🤖 Computer thinking...')
-                              : (status === 'playing' || status === 'check') && ((turn === userColor) ? 'Your turn' : "Opponent's turn")}
+                              ? (turn === aiGame.playerColor ? t('game.yourTurn') : t('game.thinking'))
+                              : (status === 'playing' || status === 'check') && ((turn === userColor) ? t('game.yourTurn') : t('game.opponentTurn'))}
                           </>
                         )}
                       </p>
@@ -774,7 +771,7 @@ export const Game = () => {
                         onClick={mpGame.abort}
                         className="w-full mb-3 bg-bg-darker hover:bg-bg-dark text-text-primary font-bold py-2 px-4 rounded-xl text-xs border border-gray-200 transition-colors"
                       >
-                        Opponent not playing? Abort the game (no rating change)
+                        {t('game.abort')}
                       </button>
                     )}
                     {isOnlineMode && mpGame.error && (
@@ -797,14 +794,14 @@ export const Game = () => {
                           }}
                           className="bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors"
                         >
-                          {isAiMode ? 'New Game' : 'New Match'}
+                          {isAiMode ? t('game.newGame') : t('game.newMatch')}
                         </button>
                       ) : (
                         <button
-                          onClick={() => { if (window.confirm('Resign this game?')) mpGame.resign(); }}
+                          onClick={() => { if (window.confirm(t('game.resignConfirm'))) mpGame.resign(); }}
                           className="bg-danger/10 hover:bg-danger/20 text-danger font-bold py-2.5 px-4 rounded-xl text-xs border border-danger/20 transition-colors"
                         >
-                          🏳️ Resign
+                          <Icon name="flag" className="w-3.5 h-3.5 inline -mt-0.5" /> {t('game.resign')}
                         </button>
                       )}
                       {isAiMode ? (
@@ -813,14 +810,14 @@ export const Game = () => {
                           disabled={!!aiGame.result || moves.length === 0}
                           className="disabled:opacity-40 disabled:cursor-not-allowed bg-bg-darker hover:bg-bg-card text-text-primary font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors text-xs"
                         >
-                          Undo Move
+                          {t('game.undo')}
                         </button>
                       ) : (
                         <button
                           onClick={() => setBoardFlipped(!boardFlipped)}
                           className="bg-bg-darker hover:bg-bg-card text-text-primary font-bold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors text-xs"
                         >
-                          Flip Board
+                          {t('game.flip')}
                         </button>
                       )}
                     </div>
@@ -831,13 +828,13 @@ export const Game = () => {
                       onClick={() => aiGame.declareResult({ winner: 'b', reason: 'resignation' })}
                       className="w-full -mt-2 bg-danger/10 hover:bg-danger/20 text-danger font-bold py-2 px-4 rounded-xl text-xs border border-danger/20 transition-colors"
                     >
-                      🏳️ Resign
+                      <Icon name="flag" className="w-3.5 h-3.5 inline -mt-0.5" /> {t('game.resign')}
                     </button>
                   )}
 
                   {/* Moves History */}
                   <div className="bg-bg-card border border-gray-200/80 rounded-xl p-4 shadow-sm flex-1 overflow-hidden flex flex-col">
-                    <p className="text-[10px] font-bold text-text-secondary uppercase mb-2">Move List</p>
+                    <p className="text-[10px] font-bold text-text-secondary uppercase mb-2">{t('game.moveList')}</p>
                     <MoveHistory moves={moves} />
                   </div>
                 </div>

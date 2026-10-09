@@ -1,82 +1,67 @@
-import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { Icon } from '../components/Icon';
+import { useI18n } from '../i18n/I18nProvider';
 
 export const Profile = () => {
   const { user, signOut } = useAuth();
+  const { t } = useI18n();
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-bg-dark flex items-center justify-center">
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-text-secondary mb-4">Please sign in to view your profile</p>
-          <Link
-            to="/login"
-            className="bg-accent hover:bg-accent-hover text-white font-bold py-2 px-4 rounded-lg"
-          >
-            Sign In
+          <p className="text-text-secondary mb-4">{t('profile.signInFirst')}</p>
+          <Link to="/login" className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover text-white font-bold py-2.5 px-5 rounded-xl">
+            <Icon name="user" className="w-4 h-4" /> {t('nav.signIn')}
           </Link>
         </div>
       </div>
     );
   }
 
+  const winRate = user.games_played > 0 ? Math.round((user.wins / user.games_played) * 100) : 0;
+  const stats = [
+    { value: user.elo_rating, label: t('profile.rating'), tone: 'text-accent' },
+    { value: user.games_played, label: t('profile.games'), tone: 'text-text-primary' },
+    { value: `${user.wins} / ${user.draws} / ${user.losses}`, label: t('profile.record'), tone: 'text-text-primary' },
+    { value: `${winRate}%`, label: t('profile.winRate'), tone: 'text-text-primary' },
+  ];
+
   return (
-    <div className="min-h-screen bg-bg-dark py-8">
-      <div className="max-w-4xl mx-auto px-6">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-text-primary">My Profile</h1>
-          <Link
-            to="/"
-            className="text-text-secondary hover:text-text-primary"
-          >
-            ← Back to Home
-          </Link>
-        </div>
-
-        <div className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm p-8 mb-6">
-          <div className="flex items-center gap-6 mb-8">
-            <div className="w-24 h-24 bg-accent rounded-full flex items-center justify-center text-white font-bold text-4xl">
-              {user.username[0].toUpperCase()}
-            </div>
+    <div className="min-h-screen bg-bg-dark py-8 px-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <section className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm p-6 sm:p-8">
+          <div className="flex items-center gap-5 mb-8">
+            <span className="w-20 h-20 bg-accent rounded-2xl flex items-center justify-center text-white font-extrabold text-3xl uppercase">
+              {user.username.slice(0, 2)}
+            </span>
             <div>
-              <h2 className="text-2xl font-bold text-text-primary">{user.username}</h2>
-              <p className="text-text-secondary">{user.email}</p>
-              <p className="text-text-secondary text-sm mt-1">
-                {isSupabaseConfigured() ? 'Online Account' : 'Guest Player (Local Mode)'}
-              </p>
+              <h1 className="text-2xl font-extrabold text-text-primary">{user.username}</h1>
+              <p className="text-text-secondary text-sm">{user.email}</p>
+              <p className="text-text-secondary text-xs mt-1">{t(isSupabaseConfigured() ? 'profile.online' : 'profile.local')}</p>
             </div>
           </div>
+          <dl className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {stats.map((s) => (
+              <div key={s.label} className="bg-bg-dark border border-gray-200/60 rounded-xl p-4 text-center">
+                <dd className={`text-2xl font-bold ${s.tone}`}>{s.value}</dd>
+                <dt className="text-text-secondary text-xs mt-1">{s.label}</dt>
+              </div>
+            ))}
+          </dl>
+        </section>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-bg-darker rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-accent">{user.elo_rating}</p>
-              <p className="text-text-secondary text-sm">Elo Rating</p>
-            </div>
-            <div className="bg-bg-darker rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-text-primary">{user.games_played}</p>
-              <p className="text-text-secondary text-sm">Games Played</p>
-            </div>
-            <div className="bg-bg-darker rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-green-400">{user.wins}</p>
-              <p className="text-text-secondary text-sm">Wins</p>
-            </div>
-            <div className="bg-bg-darker rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-red-400">{user.losses}</p>
-              <p className="text-text-secondary text-sm">Losses</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm p-6">
-          <h3 className="text-xl font-bold text-text-primary mb-4">Account Settings</h3>
+        <section className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-text-primary mb-4">{t('profile.account')}</h2>
           <button
             onClick={signOut}
-            className="bg-danger hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 bg-danger/10 hover:bg-danger/15 text-danger font-bold py-2.5 px-4 rounded-xl border border-danger/20 transition-colors"
           >
-            Sign Out
+            <Icon name="logout" className="w-4 h-4" /> {t('profile.signOut')}
           </button>
-        </div>
+        </section>
       </div>
     </div>
   );

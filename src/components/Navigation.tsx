@@ -1,243 +1,158 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useState } from 'react';
+import { useI18n, type MessageKey } from '../i18n/I18nProvider';
+import { Icon, type IconName } from './Icon';
+
+const COACH_LINKS: { to: string; label: MessageKey; hint: MessageKey; icon: IconName }[] = [
+  { to: '/coach/elo', label: 'nav.elo', hint: 'nav.eloHint', icon: 'chart' },
+  { to: '/coach/tactics', label: 'nav.tactics', hint: 'nav.tacticsHint', icon: 'puzzle' },
+  { to: '/coach/themes', label: 'nav.themes', hint: 'nav.themesHint', icon: 'layers' },
+  { to: '/coach/position', label: 'nav.positions', hint: 'nav.positionsHint', icon: 'target' },
+];
+
+const LangSwitch = () => {
+  const { lang, setLang, t } = useI18n();
+  return (
+    <div role="group" aria-label={t('nav.language')} className="flex items-center bg-bg-darker rounded-lg p-0.5 text-xs font-bold">
+      {(['fr', 'en'] as const).map((l) => (
+        <button
+          key={l}
+          onClick={() => setLang(l)}
+          aria-pressed={lang === l}
+          className={`px-2.5 py-1.5 rounded-md uppercase transition-colors ${lang === l ? 'bg-bg-card text-text-primary shadow-xs' : 'text-text-secondary hover:text-text-primary'}`}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 export const Navigation = () => {
   const location = useLocation();
   const { user } = useAuth();
-  const [coachDropdownOpen, setCoachDropdownOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useI18n();
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const coachRef = useRef<HTMLDivElement>(null);
 
-  const isActive = (path: string) => location.pathname === path;
-  const isCoachActive = (path: string) => location.pathname.startsWith(path);
+  const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
+
+  // Close menus when the page changes or when clicking elsewhere
+  useEffect(() => {
+    setCoachOpen(false);
+    setMobileOpen(false);
+  }, [location.pathname]);
+  useEffect(() => {
+    if (!coachOpen) return;
+    const close = (e: MouseEvent) => {
+      if (coachRef.current && !coachRef.current.contains(e.target as Node)) setCoachOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [coachOpen]);
+
+  const linkClass = (path: string) =>
+    `text-sm font-semibold transition-colors ${isActive(path) ? 'text-accent' : 'text-text-secondary hover:text-text-primary'}`;
+  const accountLink = user
+    ? { to: '/profile', label: t('nav.profile') }
+    : { to: '/login', label: t('nav.signIn') };
 
   return (
-    <nav className="bg-bg-card border-b border-gray-200/50 shadow-xs sticky top-0 z-50">
+    <nav className="bg-bg-card/95 backdrop-blur border-b border-gray-200/60 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="text-lg sm:text-xl font-black text-text-primary flex items-center gap-1.5 hover:opacity-85 transition-opacity">
-            <span className="text-xl sm:text-2xl text-accent">♞</span> Chess Hub
+        <div className="flex items-center justify-between h-16 gap-4">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
+            <span className="w-8 h-8 rounded-lg bg-accent text-white flex items-center justify-center text-xl leading-none">♞</span>
+            <span className="text-lg font-extrabold text-text-primary tracking-tight">Chess Hub</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link
-              to="/"
-              className={`text-sm font-medium transition-colors ${
-                isActive('/') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Home
-            </Link>
-            <Link
-              to="/game"
-              className={`text-sm font-medium transition-colors ${
-                isActive('/game') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Play
-            </Link>
-            <div className="relative">
+          <div className="hidden md:flex items-center gap-7">
+            <Link to="/" className={linkClass('/')}>{t('nav.home')}</Link>
+            <Link to="/game" className={linkClass('/game')}>{t('nav.play')}</Link>
+            <div className="relative" ref={coachRef}>
               <button
-                onClick={() => setCoachDropdownOpen(!coachDropdownOpen)}
-                className={`text-sm font-medium transition-colors flex items-center gap-1 ${
-                  isCoachActive('/coach') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-                }`}
+                onClick={() => setCoachOpen((o) => !o)}
+                aria-expanded={coachOpen}
+                className={`${linkClass('/coach')} flex items-center gap-1`}
               >
-                AI Coach
-                <svg className={`w-4 h-4 transition-transform ${coachDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                {t('nav.coach')}
+                <Icon name="chevronDown" className={`w-4 h-4 transition-transform ${coachOpen ? 'rotate-180' : ''}`} />
               </button>
-              {coachDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-bg-card border border-gray-200/80 rounded-xl shadow-lg py-2 z-50">
-                  <Link
-                    to="/coach/elo"
-                    onClick={() => setCoachDropdownOpen(false)}
-                    className={`block px-4 py-2 text-sm transition-colors ${
-                      isActive('/coach/elo') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    📊 Elo Prediction
-                  </Link>
-                  <Link
-                    to="/coach/tactics"
-                    onClick={() => setCoachDropdownOpen(false)}
-                    className={`block px-4 py-2 text-sm transition-colors ${
-                      isActive('/coach/tactics') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    ⚔️ Tactic Trainer
-                  </Link>
-                  <Link
-                    to="/coach/position"
-                    onClick={() => setCoachDropdownOpen(false)}
-                    className={`block px-4 py-2 text-sm transition-colors ${
-                      isActive('/coach/position') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    🎯 Position Trainer
-                  </Link>
-                  <Link
-                    to="/coach/themes"
-                    onClick={() => setCoachDropdownOpen(false)}
-                    className={`block px-4 py-2 text-sm transition-colors ${
-                      isActive('/coach/themes') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    🧩 Theme Analyzer
-                  </Link>
+              {coachOpen && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-72 bg-bg-card border border-gray-200/80 rounded-2xl shadow-lg p-2 z-50">
+                  {COACH_LINKS.map((l) => (
+                    <Link
+                      key={l.to}
+                      to={l.to}
+                      className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive(l.to) ? 'bg-accent/10' : 'hover:bg-bg-darker'}`}
+                    >
+                      <span className="mt-0.5 w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                        <Icon name={l.icon} className="w-[18px] h-[18px]" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-semibold text-text-primary">{t(l.label)}</span>
+                        <span className="block text-xs text-text-secondary leading-snug">{t(l.hint)}</span>
+                      </span>
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
-            <Link
-              to="/leaderboard"
-              className={`text-sm font-medium transition-colors ${
-                isActive('/leaderboard') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Leaderboard
-            </Link>
-            {user ? (
-              <Link
-                to="/profile"
-                className={`text-sm font-medium transition-colors ${
-                  isActive('/profile') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Profile
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                className={`text-sm font-medium transition-colors ${
-                  isActive('/login') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Sign In
-              </Link>
-            )}
+            <Link to="/leaderboard" className={linkClass('/leaderboard')}>{t('nav.leaderboard')}</Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-bg-darker transition-colors"
-          >
-            <svg className="w-6 h-6 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="hidden md:flex items-center gap-3">
+            <LangSwitch />
+            <Link
+              to={accountLink.to}
+              className={`flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-xl transition-colors ${
+                user ? 'text-text-primary hover:bg-bg-darker' : 'bg-text-primary text-white hover:bg-black'
+              }`}
+            >
+              {user ? (
+                <span className="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center text-xs font-extrabold uppercase">
+                  {user.username.slice(0, 2)}
+                </span>
               ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <Icon name="user" className="w-4 h-4" />
               )}
-            </svg>
+              {user ? user.username : accountLink.label}
+            </Link>
+          </div>
+
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label={t('nav.menu')}
+            aria-expanded={mobileOpen}
+            className="md:hidden p-2 rounded-lg hover:bg-bg-darker transition-colors text-text-primary"
+          >
+            <Icon name={mobileOpen ? 'close' : 'menu'} className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-2 border-t border-gray-200/50 mt-2">
-            <Link
-              to="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-              }`}
-            >
-              Home
-            </Link>
-            <Link
-              to="/game"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/game') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-              }`}
-            >
-              Play
-            </Link>
-            <div className="px-4 py-2">
-              <button
-                onClick={() => setCoachDropdownOpen(!coachDropdownOpen)}
-                className={`text-sm font-medium transition-colors flex items-center gap-1 w-full ${
-                  isCoachActive('/coach') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                AI Coach
-                <svg className={`w-4 h-4 transition-transform ${coachDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {coachDropdownOpen && (
-                <div className="mt-2 space-y-1 pl-4">
-                  <Link
-                    to="/coach/elo"
-                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
-                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
-                      isActive('/coach/elo') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    📊 Elo Prediction
-                  </Link>
-                  <Link
-                    to="/coach/tactics"
-                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
-                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
-                      isActive('/coach/tactics') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    ⚔️ Tactic Trainer
-                  </Link>
-                  <Link
-                    to="/coach/position"
-                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
-                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
-                      isActive('/coach/position') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    🎯 Position Trainer
-                  </Link>
-                  <Link
-                    to="/coach/themes"
-                    onClick={() => { setCoachDropdownOpen(false); setMobileMenuOpen(false); }}
-                    className={`block px-4 py-2 text-sm transition-colors rounded-lg ${
-                      isActive('/coach/themes') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                    }`}
-                  >
-                    🧩 Theme Analyzer
-                  </Link>
-                </div>
-              )}
-            </div>
-            <Link
-              to="/leaderboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/leaderboard') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-              }`}
-            >
-              Leaderboard
-            </Link>
-            {user ? (
+        {mobileOpen && (
+          <div className="md:hidden pb-4 space-y-1 border-t border-gray-200/50 pt-3">
+            {[
+              { to: '/', label: t('nav.home'), icon: 'home' as IconName },
+              { to: '/game', label: t('nav.play'), icon: 'board' as IconName },
+              ...COACH_LINKS.map((l) => ({ to: l.to, label: t(l.label), icon: l.icon })),
+              { to: '/leaderboard', label: t('nav.leaderboard'), icon: 'trophy' as IconName },
+              { to: accountLink.to, label: accountLink.label, icon: 'user' as IconName },
+            ].map((l) => (
               <Link
-                to="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive('/profile') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
+                key={l.to}
+                to={l.to}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                  isActive(l.to) ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
                 }`}
               >
-                Profile
+                <Icon name={l.icon} className="w-[18px] h-[18px]" />
+                {l.label}
               </Link>
-            ) : (
-              <Link
-                to="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive('/login') ? 'text-accent bg-accent/5' : 'text-text-secondary hover:text-text-primary hover:bg-bg-darker'
-                }`}
-              >
-                Sign In
-              </Link>
-            )}
+            ))}
+            <div className="px-3 pt-2"><LangSwitch /></div>
           </div>
         )}
       </div>

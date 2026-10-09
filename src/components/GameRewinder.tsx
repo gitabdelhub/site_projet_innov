@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import type { Move } from '../types/chess';
 import { evaluatePositions, judgeMoves, formatEval, type AnalyzedMove, type MoveCategory } from '../lib/analysis';
+import { useI18n, type MessageKey } from '../i18n/I18nProvider';
+import { localSan } from '../i18n/san';
+import { Icon } from './Icon';
 
 type Category = MoveCategory;
 
@@ -16,12 +19,20 @@ interface GameRewinderProps {
   totalMoves: number;
 }
 
-const COMMENTS: Record<Category, string> = {
-  best: 'Excellent — this is the engine\'s choice or equivalent.',
-  good: 'Good move, the position stays balanced.',
-  inaccuracy: 'Inaccuracy — a slightly better move was available.',
-  mistake: 'Mistake — this gives away a significant advantage.',
-  blunder: 'Blunder! This loses material or the game.',
+const COMMENTS: Record<Category, MessageKey> = {
+  best: 'review.comment.best',
+  good: 'review.comment.good',
+  inaccuracy: 'review.comment.inaccuracy',
+  mistake: 'review.comment.mistake',
+  blunder: 'review.comment.blunder',
+};
+
+const LABELS: Record<Category, MessageKey> = {
+  best: 'review.cat.best',
+  good: 'review.cat.good',
+  inaccuracy: 'review.cat.inaccuracy',
+  mistake: 'review.cat.mistake',
+  blunder: 'review.cat.blunder',
 };
 
 const COLORS: Record<Category, string> = {
@@ -44,6 +55,7 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
   setIsRewindMode,
   totalMoves,
 }) => {
+  const { t, lang } = useI18n();
   const [analysis, setAnalysis] = useState<AnalyzedMove[] | null>(null);
   const [progress, setProgress] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -143,10 +155,10 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
   return (
     <div className="bg-bg-card border border-gray-200/80 rounded-xl p-4 shadow-sm h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-text-primary font-bold text-sm">🔄 Game Analysis</h3>
+        <h3 className="text-text-primary font-bold text-sm">{t('review.title')}</h3>
         {!isRewindMode && moves.length > 0 && (
           <button onClick={startRewind} className="text-xs font-semibold text-accent hover:underline">
-            Start Rewind
+            {t('review.start')}
           </button>
         )}
       </div>
@@ -155,19 +167,20 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
         <div className="space-y-3 flex-1 flex flex-col min-h-0">
           {/* Controls */}
           <div className="flex items-center justify-center gap-1.5">
-            <button onClick={() => goTo(0)} disabled={rewindIndex === 0} className={btn} title="Start (Home)">⏮</button>
-            <button onClick={() => goTo((rewindIndex ?? 0) - 1)} disabled={rewindIndex === 0} className={btn} title="Previous (←)">◀</button>
+            <button onClick={() => goTo(0)} disabled={rewindIndex === 0} className={btn} title={t('review.first')} aria-label={t('review.first')}><Icon name="skipBack" className="w-3.5 h-3.5" /></button>
+            <button onClick={() => goTo((rewindIndex ?? 0) - 1)} disabled={rewindIndex === 0} className={btn} title={t('review.prev')} aria-label={t('review.prev')}><Icon name="stepBack" className="w-4 h-4" /></button>
             <button
               onClick={togglePlay}
               className="w-8 h-8 bg-accent hover:bg-accent-hover rounded-lg flex items-center justify-center text-white text-xs transition-colors"
-              title="Play / Pause (Space)"
+              title={t('review.playPause')}
+              aria-label={t('review.playPause')}
             >
-              {isAutoPlaying ? '⏸' : '▶'}
+              <Icon name={isAutoPlaying ? 'pause' : 'play'} className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => goTo((rewindIndex ?? 0) + 1)} disabled={rewindIndex === totalMoves} className={btn} title="Next (→)">▶</button>
-            <button onClick={() => goTo(totalMoves)} disabled={rewindIndex === totalMoves} className={btn} title="End (End)">⏭</button>
+            <button onClick={() => goTo((rewindIndex ?? 0) + 1)} disabled={rewindIndex === totalMoves} className={btn} title={t('review.next')} aria-label={t('review.next')}><Icon name="stepForward" className="w-4 h-4" /></button>
+            <button onClick={() => goTo(totalMoves)} disabled={rewindIndex === totalMoves} className={btn} title={t('review.last')} aria-label={t('review.last')}><Icon name="skipForward" className="w-3.5 h-3.5" /></button>
             <div className="text-center pl-2">
-              <div className="text-[10px] font-bold text-text-secondary uppercase">Move</div>
+              <div className="text-[10px] font-bold text-text-secondary uppercase">{t('review.move')}</div>
               <div className="text-sm font-bold text-text-primary font-mono">{rewindIndex}/{totalMoves}</div>
             </div>
           </div>
@@ -175,7 +188,7 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
           {/* Current move analysis */}
           {!analysis ? (
             <div className="bg-bg-darker/40 border border-gray-100 rounded-xl p-3">
-              <p className="text-xs text-text-secondary mb-2">🤖 Stockfish is analyzing the game… {progress}/{totalMoves + 1}</p>
+              <p className="text-xs text-text-secondary mb-2">{t('review.analysing', { done: progress, total: totalMoves + 1 })}</p>
               <div className="w-full h-1.5 bg-bg-darker rounded-full overflow-hidden">
                 <div className="h-full bg-accent transition-all" style={{ width: `${(progress / (totalMoves + 1)) * 100}%` }} />
               </div>
@@ -184,17 +197,17 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
             <div className="bg-bg-darker/40 border border-gray-100 rounded-xl p-3">
               <div className="flex items-center justify-between mb-1">
                 <span className={`text-xs font-bold uppercase ${COLORS[current.category]}`}>
-                  {ICONS[current.category]} {moves[(rewindIndex ?? 1) - 1]?.san} — {current.category}
+                  {ICONS[current.category]} {localSan(moves[(rewindIndex ?? 1) - 1]?.san ?? '', lang)} · {t(LABELS[current.category])}
                 </span>
                 <span className={`text-xs font-bold font-mono ${current.evalAfter >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                   {formatEval(current.evalAfter)}
                 </span>
               </div>
-              <p className="text-xs text-text-primary leading-relaxed">{COMMENTS[current.category]}</p>
+              <p className="text-xs text-text-primary leading-relaxed">{t(COMMENTS[current.category])}</p>
             </div>
           ) : (
             <div className="bg-bg-darker/40 border border-gray-100 rounded-xl p-3 text-xs text-text-secondary">
-              Starting position. Use ▶ or the arrow keys to step through the game.
+              {t('review.startPosition')}
             </div>
           )}
 
@@ -214,7 +227,7 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
                           rewindIndex === i + 1 ? 'bg-accent text-white' : 'text-text-primary hover:bg-bg-darker'
                         }`}
                       >
-                        {moves[i].san}
+                        {localSan(moves[i].san, lang)}
                         {analysis && analysis[i].category !== 'best' && analysis[i].category !== 'good' && (
                           <span className={`ml-0.5 ${rewindIndex === i + 1 ? 'text-white' : COLORS[analysis[i].category]}`}>
                             {ICONS[analysis[i].category]}
@@ -233,13 +246,13 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
           {/* Summary */}
           {analysis && (
             <div className="grid grid-cols-2 gap-2">
-              {[{ label: 'Your Moves', color: playerColor }, { label: 'Opponent', color: opponentColor }].map(({ label, color }) => (
+              {[{ label: t('review.yourMoves'), color: playerColor }, { label: t('review.opponent'), color: opponentColor }].map(({ label, color }) => (
                 <div key={label} className="bg-bg-dark/50 rounded-lg p-2 text-center text-[11px] font-bold">
                   <div className="text-[10px] text-text-secondary uppercase mb-1">{label}</div>
-                  <div className="text-green-600">{countFor(color as 'w' | 'b', 'best')} Best</div>
-                  <div className="text-yellow-600">{countFor(color as 'w' | 'b', 'inaccuracy')} Inaccuracies</div>
-                  <div className="text-orange-500">{countFor(color as 'w' | 'b', 'mistake')} Mistakes</div>
-                  <div className="text-red-500">{countFor(color as 'w' | 'b', 'blunder')} Blunders</div>
+                  <div className="text-green-600">{countFor(color as 'w' | 'b', 'best')} {t('review.cat.best')}</div>
+                  <div className="text-yellow-600">{countFor(color as 'w' | 'b', 'inaccuracy')} {t('review.inaccuracies')}</div>
+                  <div className="text-orange-500">{countFor(color as 'w' | 'b', 'mistake')} {t('review.mistakes')}</div>
+                  <div className="text-red-500">{countFor(color as 'w' | 'b', 'blunder')} {t('review.blunders')}</div>
                 </div>
               ))}
             </div>
@@ -249,13 +262,13 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
             onClick={exitRewind}
             className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
           >
-            Exit Rewind Mode
+            {t('review.exit')}
           </button>
         </div>
       ) : (
         <div className="text-center py-4 flex-1 flex items-center justify-center">
           <p className="text-text-secondary text-xs">
-            {moves.length === 0 ? 'Play a game to analyze' : 'Click "Start Rewind" to replay and analyze the moves.'}
+            {moves.length === 0 ? t('review.empty') : t('review.intro')}
           </p>
         </div>
       )}

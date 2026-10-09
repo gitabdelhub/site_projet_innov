@@ -23,7 +23,11 @@ Tout le calcul lourd (moteur d'échecs, estimation du niveau) se fait dans le na
 - Contre Stockfish 18, 5 niveaux, pendule, retour en arrière, promotion au choix, revue de la partie avec l'avis du moteur.
 - En ligne (avec un compte) : recherche d'adversaire de niveau proche (l'écart accepté s'élargit avec l'attente), pendule 10 min + 2 s par coup, chat, classement Elo, reprise d'une partie après rechargement de la page, annulation d'une partie jamais commencée.
 
-**Progresser (AI Coach)**
+**Deux langues** : tout le site existe en français et en anglais (bouton FR / EN en haut à droite). En français, les coups s'écrivent en notation française (Cf3, Fb5…).
+
+**Progression sauvegardée** : dans le navigateur, et sur le compte quand on est connecté (on la retrouve sur un autre appareil, les deux progressions sont fusionnées sans rien perdre).
+
+**Progresser (coach)**
 - **Elo Prediction** : importez vos 1, 3, 5 ou 10 dernières parties Lichess ou Chess.com (ou collez des PGN). Le site analyse chaque coup, estime votre niveau, affiche la marge d'erreur, votre précision par phase de jeu et vos erreurs clés. Pour les parties importées, il affiche aussi le vrai classement à côté de l'estimation.
 - **Tactic Trainer** : 335 puzzles, 7 thèmes, 3 niveaux, indices, solution animée, séries.
 - **Position Trainer** : choisir le bon coup dans des positions d'ouverture types.
@@ -56,7 +60,7 @@ Ouvrez http://localhost:3000. Jeu contre l'ordinateur, entraînement et prédict
 ### 2. Avec le jeu en ligne (Supabase)
 
 1. Créez un projet sur [supabase.com](https://supabase.com).
-2. Dans l'éditeur SQL, exécutez **dans cet ordre** : `supabase-setup.sql`, `supabase-migration-v2.sql`, `supabase-migration-v3.sql`.
+2. Dans l'éditeur SQL, exécutez **dans cet ordre** : `supabase-setup.sql`, `supabase-migration-v2.sql`, `supabase-migration-v3.sql`, `supabase-migration-v4.sql` (sauvegarde de la progression sur le compte).
 3. Copiez `.env.example` en `.env` et remplissez les trois valeurs (Project Settings → API) :
    ```env
    VITE_SUPABASE_URL=...
@@ -99,7 +103,6 @@ npx vite-node ml/browser-engine-check.ts # 4. refait l'analyse avec le moteur du
 
 - Une seule partie contient peu d'information : l'estimation reste large (environ ±600 points pour 80 % des cas). Elle se resserre avec plusieurs parties, mais un écart propre à chaque joueur subsiste (environ ±450 avec 10 parties).
 - L'estimation est un classement « style Lichess », plus élevé que le classement FIDE pour la plupart des joueurs.
-- La progression d'entraînement est gardée dans le navigateur (pas encore sur le compte).
 
 ## Structure
 

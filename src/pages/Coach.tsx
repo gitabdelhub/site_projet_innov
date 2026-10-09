@@ -1,102 +1,70 @@
 import { Link } from 'react-router-dom';
 import { PUZZLES, THEMES, getPuzzlesByTheme } from '../data/puzzles';
+import { POSITIONS } from '../data/positions';
 import { useProgress, resetProgress } from '../lib/progress';
+import { PageHeader } from '../components/PageHeader';
+import { Icon, type IconName } from '../components/Icon';
+import { useI18n, type MessageKey } from '../i18n/I18nProvider';
+
+const SECTIONS: { path: string; icon: IconName; title: MessageKey; text: MessageKey }[] = [
+  { path: '/coach/elo', icon: 'chart', title: 'nav.elo', text: 'coach.eloText' },
+  { path: '/coach/tactics', icon: 'puzzle', title: 'nav.tactics', text: 'coach.tacticsText' },
+  { path: '/coach/themes', icon: 'layers', title: 'nav.themes', text: 'coach.themesText' },
+  { path: '/coach/position', icon: 'target', title: 'nav.positions', text: 'coach.positionsText' },
+];
 
 export const Coach: React.FC = () => {
+  const { t } = useI18n();
   const progress = useProgress();
-  const themesMastered = THEMES.filter((t) => getPuzzlesByTheme(t.id).every((p) => progress.solvedPuzzles.includes(p.id))).length;
+  const themesMastered = THEMES.filter((th) => getPuzzlesByTheme(th.id).every((p) => progress.solvedPuzzles.includes(p.id))).length;
   const stats = [
-    { value: progress.gamesAnalyzed, label: 'Games Analyzed' },
-    { value: `${progress.solvedPuzzles.length}/${PUZZLES.length}`, label: 'Puzzles Solved' },
-    { value: `${themesMastered}/${THEMES.length}`, label: 'Themes Mastered' },
-    { value: progress.solvedPositions.length, label: 'Positions Mastered' },
-  ];
-  const coachSections = [
-    {
-      path: '/coach/elo',
-      icon: '📊',
-      title: 'Elo Prediction',
-      description: 'Upload your games or link your Chess.com/Lichess accounts to predict your ELO rating and analyze your playing style.',
-      color: 'from-blue-500/10 to-blue-600/5',
-      borderColor: 'border-blue-500/20'
-    },
-    {
-      path: '/coach/tactics',
-      icon: '⚔️',
-      title: 'Tactic Trainer',
-      description: 'Sharpen your tactical vision with interactive puzzles. Find the best moves to improve your pattern recognition.',
-      color: 'from-red-500/10 to-red-600/5',
-      borderColor: 'border-red-500/20'
-    },
-    {
-      path: '/coach/position',
-      icon: '🎯',
-      title: 'Position Trainer',
-      description: 'Master critical positions from different openings and middlegames. Improve your positional understanding.',
-      color: 'from-green-500/10 to-green-600/5',
-      borderColor: 'border-green-500/20'
-    },
-    {
-      path: '/coach/themes',
-      icon: '🧩',
-      title: 'Theme Trainer',
-      description: 'Train one tactical theme at a time: back rank, forks, pins, mating nets, sacrifices and more.',
-      color: 'from-purple-500/10 to-purple-600/5',
-      borderColor: 'border-purple-500/20'
-    }
+    { value: progress.gamesAnalyzed, label: t('coach.statGames') },
+    { value: `${progress.solvedPuzzles.length}/${PUZZLES.length}`, label: t('tactics.statSolved') },
+    { value: `${themesMastered}/${THEMES.length}`, label: t('themes.statThemes') },
+    { value: `${progress.solvedPositions.length}/${POSITIONS.length}`, label: t('positions.statMastered') },
   ];
 
   return (
     <div className="min-h-screen bg-bg-dark py-8 px-4 font-sans select-none">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-extrabold text-text-primary tracking-tight mb-4">AI Chess Coach</h1>
-          <p className="text-text-secondary text-lg max-w-2xl mx-auto">
-            Improve your chess with personalized training. Choose a training mode below to get started.
-          </p>
-        </div>
+      <div className="max-w-5xl mx-auto">
+        <PageHeader icon="graduation" title={t('coach.title')} subtitle={t('coach.subtitle')} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {coachSections.map((section) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {SECTIONS.map((s) => (
             <Link
-              key={section.path}
-              to={section.path}
-              className={`group bg-gradient-to-br ${section.color} ${section.borderColor} border-2 rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.02]`}
+              key={s.path}
+              to={s.path}
+              className="group bg-bg-card border border-gray-200/80 rounded-2xl p-6 flex items-start gap-4 hover:border-accent/40 hover:shadow-md transition-all"
             >
-              <div className="flex items-start gap-4">
-                <div className="text-5xl">{section.icon}</div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-text-primary mb-3 group-hover:text-accent transition-colors">
-                    {section.title}
-                  </h3>
-                  <p className="text-text-secondary text-sm leading-relaxed">
-                    {section.description}
-                  </p>
-                </div>
-                <div className="text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
+              <span className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                <Icon name={s.icon} className="w-6 h-6" />
+              </span>
+              <span className="flex-1">
+                <span className="block text-lg font-bold text-text-primary mb-1 group-hover:text-accent transition-colors">{t(s.title)}</span>
+                <span className="block text-sm text-text-secondary leading-relaxed">{t(s.text)}</span>
+              </span>
+              <Icon name="arrowRight" className="w-5 h-5 text-accent mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
           ))}
         </div>
 
-        <div className="mt-12 bg-bg-card border border-gray-200/80 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-text-primary text-lg mb-4">📈 Your Progress</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <section className="mt-10 bg-bg-card border border-gray-200/80 rounded-2xl p-6 shadow-sm">
+          <h2 className="font-bold text-text-primary text-lg mb-4">{t('common.yourProgress')}</h2>
+          <dl className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
-                <div className="text-3xl font-bold text-accent mb-1">{s.value}</div>
-                <div className="text-xs text-text-secondary">{s.label}</div>
+                <dd className="text-3xl font-bold text-accent mb-1">{s.value}</dd>
+                <dt className="text-xs text-text-secondary">{s.label}</dt>
               </div>
             ))}
-          </div>
-          <button onClick={resetProgress} className="mt-4 text-[11px] text-text-secondary hover:text-danger underline">
-            Reset progress
+          </dl>
+          <button
+            onClick={() => { if (window.confirm(t('coach.resetConfirm'))) resetProgress(); }}
+            className="mt-5 text-[11px] text-text-secondary hover:text-danger underline"
+          >
+            {t('coach.reset')}
           </button>
-        </div>
+        </section>
       </div>
     </div>
   );

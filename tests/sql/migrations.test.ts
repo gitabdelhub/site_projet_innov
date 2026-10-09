@@ -61,6 +61,7 @@ beforeAll(async () => {
   await db.exec(script('supabase-setup.sql'));
   await db.exec(script('supabase-migration-v2.sql'));
   await db.exec(script('supabase-migration-v3.sql'));
+  await db.exec(script('supabase-migration-v4.sql'));
   await db.exec(`
     INSERT INTO auth.users VALUES ('${A}', 'alice@example.com', '{"username":"alice"}');
     INSERT INTO auth.users VALUES ('${B}', 'bob@example.com', '{"username":"bob"}');
@@ -172,5 +173,15 @@ describe('database security (migration v3)', () => {
     // A name created before v3 (the rule did not exist yet): skip triggers to simulate it
     await db.exec(`SET session_replication_role = replica; UPDATE profiles SET username = 'old.name' WHERE id = '${C}'; SET session_replication_role = origin;`);
     await db.query(`UPDATE profiles SET elo_rating = elo_rating + 1 WHERE id = '${C}'`);
+  });
+
+  it('saves each player training progress privately (v4)', async () => {
+    await as('authenticated', A, `INSERT INTO learning_progress (user_id, data) VALUES ('${A}', '{"solvedPuzzles":["br1"]}')`);
+    await as('authenticated', A, `UPDATE learning_progress SET data = '{"solvedPuzzles":["br1","fk1"]}' WHERE user_id = '${A}'`);
+    const mine = await as('authenticated', A, 'SELECT data FROM learning_progress');
+    expect(mine.rows[0].data.solvedPuzzles).toEqual(['br1', 'fk1']);
+    expect((await as('authenticated', B, 'SELECT * FROM learning_progress')).rows).toHaveLength(0);
+    await fails(as('authenticated', B, `INSERT INTO learning_progress (user_id, data) VALUES ('${A}', '{}')`));
+    await fails(as('anon', null, 'SELECT * FROM learning_progress'));
   });
 });
