@@ -5,6 +5,9 @@ import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { Icon, type IconName } from './Icon';
 
 const COACH_LINKS: { to: string; label: MessageKey; hint: MessageKey; icon: IconName }[] = [
+  { to: '/coach', label: 'nav.profileCoach', hint: 'nav.profileCoachHint', icon: 'user' },
+  { to: '/coach/tactics?mode=foryou', label: 'nav.forYou', hint: 'nav.forYouHint', icon: 'sparkle' },
+  { to: '/coach/mistakes', label: 'nav.mistakes', hint: 'nav.mistakesHint', icon: 'undo' },
   { to: '/coach/elo', label: 'nav.elo', hint: 'nav.eloHint', icon: 'chart' },
   { to: '/coach/tactics', label: 'nav.tactics', hint: 'nav.tacticsHint', icon: 'puzzle' },
   { to: '/coach/themes', label: 'nav.themes', hint: 'nav.themesHint', icon: 'layers' },
@@ -37,7 +40,15 @@ export const Navigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const coachRef = useRef<HTMLDivElement>(null);
 
-  const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
+  // A link with a query (?mode=foryou) matches only that exact page; /coach and the
+  // plain puzzle list must not light up for their sub-pages
+  const isActive = (path: string) => {
+    const [base, query] = path.split('?');
+    if (query) return location.pathname === base && location.search === `?${query}`;
+    if (base === '/' || base === '/coach') return location.pathname === base;
+    if (base === '/coach/tactics') return location.pathname === base && !location.search.includes('mode=');
+    return location.pathname.startsWith(base);
+  };
 
   // Close menus when the page changes or when clicking elsewhere
   useEffect(() => {
@@ -76,7 +87,7 @@ export const Navigation = () => {
               <button
                 onClick={() => setCoachOpen((o) => !o)}
                 aria-expanded={coachOpen}
-                className={`${linkClass('/coach')} flex items-center gap-1`}
+                className={`text-sm font-semibold transition-colors ${location.pathname.startsWith('/coach') ? 'text-accent' : 'text-text-secondary hover:text-text-primary'} flex items-center gap-1`}
               >
                 {t('nav.coach')}
                 <Icon name="chevronDown" className={`w-4 h-4 transition-transform ${coachOpen ? 'rotate-180' : ''}`} />

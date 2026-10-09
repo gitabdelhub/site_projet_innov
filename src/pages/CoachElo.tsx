@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon';
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { localSan } from '../i18n/san';
 import { explainMove } from '../lib/explain';
+import { addMistakes, mistakesFromGame, recordLevel } from '../lib/adaptive';
 
 // An error whose message is a translation key (so it follows the language switch)
 class KeyedError extends Error {
@@ -206,11 +207,13 @@ export const CoachElo: React.FC = () => {
     }));
     const actual = games.map((g) => g.actualElo).filter((r): r is number => r !== null);
     const first = games[0];
+    const estimate = Math.round(avg(games.map((g) => g.estimate)));
+    const style: Report['style'] = aggressive > 0.35 ? 'aggressive' : aggressive < 0.15 ? 'positional' : 'balanced';
 
     setReport({
       games,
       playerName: importedUser ?? (first.side === 'w' ? first.white : first.black),
-      estimate: Math.round(avg(games.map((g) => g.estimate))),
+      estimate,
       margin: errorFor(games.length),
       actualElo: actual.length === games.length ? Math.round(avg(actual)) : null,
       accuracy: Math.round(avg(mine.map((m) => m.accuracy)) * 10) / 10,
@@ -222,10 +225,16 @@ export const CoachElo: React.FC = () => {
       opening: byPhase(0, 10),
       middlegame: byPhase(10, 30),
       endgame: byPhase(30, Infinity),
-      style: aggressive > 0.35 ? 'aggressive' : aggressive < 0.15 ? 'positional' : 'balanced',
+      style,
     });
     setAnalyzing(false);
-    updateProgress((p) => ({ ...p, gamesAnalyzed: p.gamesAnalyzed + games.length }));
+    // Feed the learning profile: level over time, style, and the mistakes to review
+    updateProgress((p) =>
+      games.reduce(
+        (acc, g) => addMistakes(acc, mistakesFromGame(g.fens, g.moves, g.best, g.side)),
+        recordLevel({ ...p, gamesAnalyzed: p.gamesAnalyzed + games.length }, estimate, style)
+      )
+    );
   };
 
   const bar = (label: string, value: number | null) => (

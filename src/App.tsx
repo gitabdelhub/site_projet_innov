@@ -20,6 +20,8 @@ const CoachThemes = lazy(() => import('./pages/CoachThemes').then((m) => ({ defa
 const Learn = lazy(() => import('./pages/Learn').then((m) => ({ default: m.Learn })));
 const LearnLesson = lazy(() => import('./pages/Learn').then((m) => ({ default: m.LearnLesson })));
 
+const CoachMistakes = lazy(() => import('./pages/CoachMistakes').then((m) => ({ default: m.CoachMistakes })));
+
 const PageLoader = () => (
   <div className="flex justify-center py-24">
     <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
@@ -48,6 +50,7 @@ function App() {
               <Route path="/coach/tactics" element={<CoachTactics />} />
               <Route path="/coach/position" element={<CoachPosition />} />
               <Route path="/coach/themes" element={<CoachThemes />} />
+              <Route path="/coach/mistakes" element={<CoachMistakes />} />
             </Routes>
           </Suspense>
         </div>

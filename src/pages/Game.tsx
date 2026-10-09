@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { MoveHistory } from '../components/MoveHistory';
@@ -17,6 +17,8 @@ import { LEVEL_SETTINGS } from '../hooks/useStockfish';
 import type { GameResult } from '../types/chess';
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { Icon } from '../components/Icon';
+import { recordAiGame, suggestedLevel } from '../lib/adaptive';
+import { updateProgress, useProgress } from '../lib/progress';
 
 const REASON_KEYS: Record<GameResult['reason'], MessageKey> = {
   checkmate: 'game.reason.checkmate',
@@ -357,6 +359,19 @@ export const Game = () => {
   const resultKey = finalResult ? `${finalResult.winner}-${finalResult.reason}-${moves.length}` : null;
   const showGameOverModal = !!finalResult && dismissedResult !== resultKey && !isRewindMode;
 
+  // Opponent that adjusts: every finished game against the computer updates the player's
+  // strength, and "Auto" picks the level from it for the next game
+  const progress = useProgress();
+  const [autoLevel, setAutoLevel] = useState(true);
+  const autoSuggestion = suggestedLevel(progress);
+  const recordedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAiMode || !aiResult || !resultKey || moves.length < 2 || recordedRef.current === resultKey) return;
+    recordedRef.current = resultKey;
+    const score = aiResult.winner === null ? 0.5 : aiResult.winner === userColor ? 1 : 0;
+    updateProgress((p) => recordAiGame(p, aiGame.difficulty, score));
+  }, [isAiMode, aiResult, resultKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Return to hub
   const handleExitGame = () => {
     if (isOnlineMode) {
@@ -408,10 +423,15 @@ export const Game = () => {
                   <div>
                     <label className="block text-[10px] sm:text-xs font-bold text-text-secondary uppercase mb-2">{t('game.difficulty')}</label>
                     <select
-                      value={aiGame.difficulty}
-                      onChange={(e) => aiGame.setDifficulty(Number(e.target.value) as any)}
+                      value={autoLevel ? 'auto' : aiGame.difficulty}
+                      onChange={(e) => {
+                        const auto = e.target.value === 'auto';
+                        setAutoLevel(auto);
+                        if (!auto) aiGame.setDifficulty(Number(e.target.value) as any);
+                      }}
                       className="w-full bg-bg-dark border border-gray-200 text-text-primary rounded-xl px-3 sm:px-4 py-2 sm:py-3 font-semibold text-xs sm:text-sm focus:border-accent focus:outline-none"
                     >
+                      <option value="auto">{t('adaptive.autoLevel', { n: autoSuggestion, label: t(`level.${autoSuggestion}` as MessageKey) })}</option>
                       {([1, 2, 3, 4, 5] as const).map((lvl) => (
                         <option key={lvl} value={lvl}>
                           {t('game.levelOption', { n: lvl, label: t(`level.${lvl}` as MessageKey), elo: LEVEL_SETTINGS[lvl].elo })}
@@ -421,6 +441,7 @@ export const Game = () => {
                   </div>
                   <button
                     onClick={() => {
+                      if (autoLevel) aiGame.setDifficulty(autoSuggestion);
                       aiGame.newGame();
                       resetClocks();
                       setGameMode('ai');

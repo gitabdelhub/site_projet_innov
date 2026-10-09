@@ -6,7 +6,8 @@ import { PageHeader } from '../components/PageHeader';
 import { Icon } from '../components/Icon';
 import { soundEffects } from '../utils/soundEffects';
 import { PUZZLES, THEMES, LEVELS, type Puzzle, type ThemeId, type LevelId } from '../data/puzzles';
-import { updateProgress, useProgress } from '../lib/progress';
+import { loadProgress, updateProgress, useProgress } from '../lib/progress';
+import { pickPuzzle, recordPuzzle, weakThemes } from '../lib/adaptive';
 import { useI18n, pick, type MessageKey } from '../i18n/I18nProvider';
 import { localSan } from '../i18n/san';
 
@@ -36,14 +37,22 @@ export const CoachTactics: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const themeFilter = (searchParams.get('theme') as ThemeId | null) ?? null;
   const levelFilter = (searchParams.get('level') as LevelId | null) ?? null;
-  const puzzles = useMemo(() => {
+  // "For me": an endless series picked by the adaptive coach
+  const forYou = searchParams.get('mode') === 'foryou';
+  const [queue, setQueue] = useState<Puzzle[]>([]);
+  const filtered = useMemo(() => {
     const level = LEVELS.find((l) => l.id === levelFilter);
     return PUZZLES.filter((p) =>
       (!themeFilter || p.theme === themeFilter) &&
       (!level || (p.rating !== undefined && p.rating >= level.min && p.rating < level.max)));
   }, [themeFilter, levelFilter]);
-  const setFilter = (key: 'theme' | 'level', value: string | null) => {
+  const puzzles = forYou ? queue : filtered;
+  const setFilter = (key: 'theme' | 'level' | 'mode', value: string | null) => {
     const next = new URLSearchParams(searchParams);
+    if (key === 'mode') {
+      next.delete('theme');
+      next.delete('level');
+    } else next.delete('mode');
     if (value) next.set(key, value);
     else next.delete(key);
     setSearchParams(next);
@@ -62,6 +71,9 @@ export const CoachTactics: React.FC = () => {
   const [feedback, setFeedback] = useState<Feedback>({ key: 'tactics.findMove' });
   const [showHint, setShowHint] = useState(false);
   const [hadError, setHadError] = useState(false);
+  // Each puzzle counts once for the rating: the first try decides
+  const ratedRef = useRef(false);
+  const [ratingDelta, setRatingDelta] = useState<number | null>(null);
   const timers = useRef<number[]>([]);
   const progress = useProgress();
 
@@ -87,12 +99,25 @@ export const CoachTactics: React.FC = () => {
     setStatus('playing');
     setShowHint(false);
     setHadError(false);
+    ratedRef.current = false;
+    setRatingDelta(null);
     setFeedback({ key: puzzle.solution.length > 1 ? 'tactics.findCombination' : 'tactics.findMove' });
   };
 
   useEffect(loadPuzzle, [puzzle]);
   useEffect(() => clearTimers, []);
-  useEffect(() => setIndex(0), [themeFilter, levelFilter]);
+  useEffect(() => {
+    setIndex(0);
+    setQueue(forYou ? [pickPuzzle(loadProgress())] : []);
+  }, [themeFilter, levelFilter, forYou]);
+
+  const rate = (score: 0 | 1) => {
+    if (ratedRef.current || !puzzle) return;
+    ratedRef.current = true;
+    const before = loadProgress().puzzleRating;
+    const after = updateProgress((p) => recordPuzzle(p, puzzle, score)).puzzleRating;
+    setRatingDelta(after - before);
+  };
 
   const applyMove = (s: string) => {
     const move = chessRef.current.move(s);
@@ -105,6 +130,7 @@ export const CoachTactics: React.FC = () => {
   };
 
   const finishSuccess = () => {
+    rate(1);
     setStatus('success');
     setFeedback({ key: 'tactics.solved' });
     soundEffects.playSuccess();
@@ -142,6 +168,7 @@ export const CoachTactics: React.FC = () => {
       setStatus('wrong');
       setHadError(true);
       setFeedback({ key: 'tactics.wrong', move: move.san });
+      rate(0);
       soundEffects.playError();
       if (!hadError) updateProgress((p) => ({ ...p, streak: 0 }));
       timers.current.push(window.setTimeout(() => {
@@ -199,6 +226,7 @@ export const CoachTactics: React.FC = () => {
     setFen(start.fen);
     setLastMove(start.lastMove);
     setStatus('revealed');
+    rate(0);
     setFeedback({ key: 'tactics.solutionIs' });
     updateProgress((p) => ({ ...p, streak: 0, puzzleAttempts: p.puzzleAttempts + 1 }));
     puzzle.solution.forEach((s, i) => {
@@ -206,7 +234,13 @@ export const CoachTactics: React.FC = () => {
     });
   };
 
-  const nextPuzzle = () => setIndex((i) => (i + 1) % puzzles.length);
+  const nextPuzzle = () => {
+    if (forYou) {
+      setQueue((q) => [...q, pickPuzzle(loadProgress(), q.map((x) => x.id).slice(-50))]);
+      setIndex((i) => i + 1);
+    } else setIndex((i) => (i + 1) % puzzles.length);
+  };
+  const weak = weakThemes(progress);
 
   const accuracy = progress.puzzleAttempts > 0 ? Math.round((progress.puzzleFirstTry / progress.puzzleAttempts) * 100) : 0;
   const side = t(playerColor === 'w' ? 'common.white' : 'common.black');
@@ -222,22 +256,34 @@ export const CoachTactics: React.FC = () => {
         <PageHeader icon="puzzle" title={t('tactics.title')} subtitle={t('tactics.subtitle', { n: PUZZLES.length })} />
 
         <div className="flex flex-wrap justify-center gap-2 mb-3">
-          <button onClick={() => setFilter('theme', null)} className={chip(!themeFilter)}>{t('tactics.allThemes')}</button>
+          <button onClick={() => setFilter('mode', 'foryou')} className={chip(forYou)}>
+            <Icon name="sparkle" className="w-3.5 h-3.5" /> {t('adaptive.forYou')}
+          </button>
+          <button onClick={() => setFilter('theme', null)} className={chip(!forYou && !themeFilter)}>{t('tactics.allThemes')}</button>
           {THEMES.map((th) => (
-            <button key={th.id} onClick={() => setFilter('theme', th.id)} className={chip(themeFilter === th.id)}>
+            <button key={th.id} onClick={() => setFilter('theme', th.id)} className={chip(!forYou && themeFilter === th.id)}>
               <Icon name={th.icon} className="w-3.5 h-3.5" />
               {pick(th.name, lang)}
             </button>
           ))}
         </div>
         <div className="flex flex-wrap justify-center gap-2 mb-5 sm:mb-6">
-          <button onClick={() => setFilter('level', null)} className={chip(!levelFilter, true)}>{t('tactics.allLevels')}</button>
+          <button onClick={() => setFilter('level', null)} className={chip(!forYou && !levelFilter, true)}>{t('tactics.allLevels')}</button>
           {LEVELS.map((l) => (
-            <button key={l.id} onClick={() => setFilter('level', l.id)} className={chip(levelFilter === l.id, true)}>
+            <button key={l.id} onClick={() => setFilter('level', l.id)} className={chip(!forYou && levelFilter === l.id, true)}>
               {pick(l.label, lang)} <span className="opacity-70 font-semibold">{l.range}</span>
             </button>
           ))}
         </div>
+
+        {forYou && (
+          <p className="max-w-2xl mx-auto text-center text-sm text-text-secondary bg-bg-card border border-accent/20 rounded-xl px-4 py-3 mb-5">
+            {t('adaptive.forYouText', { rating: progress.puzzleRating })}{' '}
+            {weak.length
+              ? t('adaptive.forYouWeak', { themes: weak.map((w) => pick(THEMES.find((th) => th.id === w.theme)!.name, lang).toLowerCase()).join(', ') })
+              : t('adaptive.forYouNoWeak')}
+          </p>
+        )}
 
         {!puzzle ? (
           <p className="text-center text-text-secondary text-sm py-16">{t('tactics.noMatch')}</p>
@@ -294,7 +340,9 @@ export const CoachTactics: React.FC = () => {
                     </span>
                     <div>
                       <h2 className="font-bold text-text-primary">{t('common.coach')}</h2>
-                      <p className="text-[11px] text-text-secondary font-semibold">{t('tactics.counter', { i: index + 1, n: puzzles.length })}</p>
+                      <p className="text-[11px] text-text-secondary font-semibold">
+                        {forYou ? t('adaptive.counter', { n: index + 1 }) : t('tactics.counter', { i: index + 1, n: puzzles.length })}
+                      </p>
                     </div>
                   </div>
                   {puzzle.rating && <span className="font-mono text-xs font-bold text-text-secondary bg-bg-darker px-2 py-1 rounded-md">{puzzle.rating}</span>}
@@ -373,6 +421,15 @@ export const CoachTactics: React.FC = () => {
               <div className="bg-bg-card border border-gray-200 rounded-2xl p-5 shadow-sm">
                 <h2 className="font-bold text-text-primary mb-3">{t('common.statistics')}</h2>
                 <dl className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <dt className="text-text-secondary">{t('adaptive.puzzleRating')}</dt>
+                    <dd className="text-text-primary font-bold">
+                      {progress.puzzleRating}
+                      {ratingDelta !== null && ratingDelta !== 0 && (
+                        <span className={`ml-1.5 ${ratingDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>{ratingDelta > 0 ? `+${ratingDelta}` : ratingDelta}</span>
+                      )}
+                    </dd>
+                  </div>
                   <div className="flex justify-between"><dt className="text-text-secondary">{t('tactics.statSolved')}</dt><dd className="text-text-primary font-bold">{progress.solvedPuzzles.length} / {PUZZLES.length}</dd></div>
                   <div className="flex justify-between"><dt className="text-text-secondary">{t('tactics.statFirstTry')}</dt><dd className="text-text-primary font-bold">{accuracy}%</dd></div>
                   <div className="flex justify-between"><dt className="text-text-secondary">{t('tactics.statStreak')}</dt><dd className="text-text-primary font-bold inline-flex items-center gap-1">{progress.streak} <Icon name="flame" className="w-3.5 h-3.5 text-orange-500" /></dd></div>

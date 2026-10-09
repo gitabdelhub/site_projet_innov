@@ -5,6 +5,8 @@ import { evaluatePositions, judgeMoves, formatEval, type AnalyzedMove, type Move
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { localSan } from '../i18n/san';
 import { explainMove } from '../lib/explain';
+import { addMistakes, mistakesFromGame } from '../lib/adaptive';
+import { updateProgress } from '../lib/progress';
 import { Icon } from './Icon';
 
 type Category = MoveCategory;
@@ -84,8 +86,12 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
     job.promise.then((evals) => {
       if (evals.length !== fens.length) return;
       analyzedKeyRef.current = movesKey;
-      setPositions({ fens, best: [...job.bestMoves] });
-      setAnalysis(judgeMoves(moves.map((m) => m.san), evals));
+      const judged = judgeMoves(moves.map((m) => m.san), evals);
+      const best = [...job.bestMoves];
+      setPositions({ fens, best });
+      setAnalysis(judged);
+      // The player's mistakes become exercises in "Review my mistakes"
+      updateProgress((p) => addMistakes(p, mistakesFromGame(fens, judged, best, playerColor)));
     });
     return job.cancel;
     // eslint-disable-next-line react-hooks/exhaustive-deps
