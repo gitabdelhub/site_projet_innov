@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Unit tests (server move check, analysis, Elo model)
+        run: npm test
+      - name: Puzzles verified by Stockfish
+        run: npm run verify:puzzles
+      - name: Production build
+        run: npx vite build

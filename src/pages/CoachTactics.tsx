@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { soundEffects } from '../utils/soundEffects';
-import { PUZZLES, THEMES, type Puzzle, type ThemeId } from '../data/puzzles';
+import { PUZZLES, THEMES, LEVELS, type Puzzle, type ThemeId, type LevelId } from '../data/puzzles';
 import { updateProgress, useProgress } from '../lib/progress';
 
 type PuzzleStatus = 'playing' | 'wrong' | 'success' | 'revealed';
@@ -14,6 +14,7 @@ const buildStart = (puzzle: Puzzle) => {
     chess.reset();
     puzzle.moves.split(' ').forEach((m) => chess.move(m));
   }
+  if (puzzle.setup) chess.move(puzzle.setup);
   const history = chess.history({ verbose: true });
   const last = history[history.length - 1];
   return { fen: chess.fen(), lastMove: last ? { from: last.from, to: last.to } : null };
@@ -22,7 +23,19 @@ const buildStart = (puzzle: Puzzle) => {
 export const CoachTactics: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const themeFilter = (searchParams.get('theme') as ThemeId | null) ?? null;
-  const puzzles = useMemo(() => (themeFilter ? PUZZLES.filter((p) => p.theme === themeFilter) : PUZZLES), [themeFilter]);
+  const levelFilter = (searchParams.get('level') as LevelId | null) ?? null;
+  const puzzles = useMemo(() => {
+    const level = LEVELS.find((l) => l.id === levelFilter);
+    return PUZZLES.filter((p) =>
+      (!themeFilter || p.theme === themeFilter) &&
+      (!level || (p.rating !== undefined && p.rating >= level.min && p.rating < level.max)));
+  }, [themeFilter, levelFilter]);
+  const setFilter = (key: 'theme' | 'level', value: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next);
+  };
 
   const [index, setIndex] = useState(0);
   const puzzle = puzzles[Math.min(index, puzzles.length - 1)];
@@ -65,7 +78,7 @@ export const CoachTactics: React.FC = () => {
 
   useEffect(loadPuzzle, [puzzle]);
   useEffect(() => clearTimers, []);
-  useEffect(() => setIndex(0), [themeFilter]);
+  useEffect(() => setIndex(0), [themeFilter, levelFilter]);
 
   const applyMove = (san: string) => {
     const move = chessRef.current.move(san);
@@ -189,14 +202,14 @@ export const CoachTactics: React.FC = () => {
         <div className="text-center mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-text-primary tracking-tight mb-2">⚔️ Tactic Trainer</h1>
           <p className="text-text-secondary text-sm sm:text-base max-w-xl mx-auto px-4">
-            {PUZZLES.length} puzzles verified by Stockfish. Find the winning move — or the whole combination.
+            {PUZZLES.length} puzzles, from hand-made classics to rated puzzles from the Lichess database. Find the winning move — or the whole combination.
           </p>
         </div>
 
         {/* Theme filter */}
         <div className="flex flex-wrap justify-center gap-2 mb-4 sm:mb-6">
           <button
-            onClick={() => setSearchParams({})}
+            onClick={() => setFilter('theme', null)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${!themeFilter ? 'bg-accent text-white border-accent' : 'bg-bg-card text-text-primary border-gray-200 hover:bg-bg-darker'}`}
           >
             All themes
@@ -204,7 +217,7 @@ export const CoachTactics: React.FC = () => {
           {THEMES.map((t) => (
             <button
               key={t.id}
-              onClick={() => setSearchParams({ theme: t.id })}
+              onClick={() => setFilter('theme', t.id)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${themeFilter === t.id ? 'bg-accent text-white border-accent' : 'bg-bg-card text-text-primary border-gray-200 hover:bg-bg-darker'}`}
             >
               {t.icon} {t.name}
@@ -212,6 +225,22 @@ export const CoachTactics: React.FC = () => {
           ))}
         </div>
 
+        {/* Level filter */}
+        <div className="flex flex-wrap justify-center gap-2 mb-4 sm:mb-6 -mt-2">
+          {[{ id: null, label: 'All levels' }, ...LEVELS].map((l) => (
+            <button
+              key={l.label}
+              onClick={() => setFilter('level', l.id)}
+              className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${levelFilter === l.id ? 'bg-text-primary text-white border-text-primary' : 'bg-bg-card text-text-secondary border-gray-200 hover:bg-bg-darker'}`}
+            >
+              {l.label}{'range' in l ? ` (${l.range})` : ''}
+            </button>
+          ))}
+        </div>
+
+        {puzzles.length === 0 ? (
+          <p className="text-center text-text-secondary text-sm py-16">No puzzle matches these filters.</p>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
           <div className="lg:col-span-7 flex flex-col items-center order-2 lg:order-1">
             <div className="game-board-container flex flex-col items-center w-full">
@@ -223,6 +252,16 @@ export const CoachTactics: React.FC = () => {
                     <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded font-bold">
                       {theme.name} · {playerColor === 'w' ? 'White' : 'Black'} to move
                     </span>
+                    {puzzle.source === 'lichess' && (
+                      <a
+                        href={`https://lichess.org/training/${puzzle.id.slice(3)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-1.5 text-[10px] text-text-secondary underline"
+                      >
+                        Lichess
+                      </a>
+                    )}
                   </div>
                 </div>
                 {progress.solvedPuzzles.includes(puzzle.id) && <span className="text-xs font-bold text-green-600">✓ Solved before</span>}
@@ -290,7 +329,18 @@ export const CoachTactics: React.FC = () => {
                 Next puzzle →
               </button>
 
-              <div className="grid grid-cols-6 gap-1.5 pt-1">
+              {puzzles.length > 30 && (
+                <div>
+                  <div className="flex justify-between text-[11px] text-text-secondary font-semibold mb-1">
+                    <span>Solved in this selection</span>
+                    <span>{puzzles.filter((p) => progress.solvedPuzzles.includes(p.id)).length} / {puzzles.length}</span>
+                  </div>
+                  <div className="w-full h-2 bg-bg-darker rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500" style={{ width: `${(puzzles.filter((p) => progress.solvedPuzzles.includes(p.id)).length / puzzles.length) * 100}%` }} />
+                  </div>
+                </div>
+              )}
+              <div className={`grid grid-cols-6 gap-1.5 pt-1 ${puzzles.length > 30 ? 'hidden' : ''}`}>
                 {puzzles.map((p, i) => (
                   <button
                     key={p.id}
@@ -321,6 +371,7 @@ export const CoachTactics: React.FC = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

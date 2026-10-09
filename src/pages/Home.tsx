@@ -133,7 +133,7 @@ export const Home = () => {
       <footer className="py-6 px-6 text-center text-[11px] text-text-secondary leading-relaxed border-t border-gray-200/40">
         Chess Hub is free software under the GNU GPL v3. Engine:{' '}
         <a className="underline" href="https://stockfishchess.org" target="_blank" rel="noreferrer">Stockfish</a> 18 (GPL v3, WebAssembly build by Nathan Rugg / Chess.com).
-        {' '}Pieces: cburnett by Colin M.L. Burnett (CC BY-SA 3.0). Elo model trained on public{' '}
+        {' '}Pieces: cburnett by Colin M.L. Burnett (CC BY-SA 3.0). Rated puzzles: Lichess puzzle database (CC0). Elo model trained on public{' '}
         <a className="underline" href="https://lichess.org" target="_blank" rel="noreferrer">Lichess</a> games.
       </footer>
     </div>

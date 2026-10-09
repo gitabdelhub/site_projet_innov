@@ -1,6 +1,8 @@
 // Tactical puzzles. The side to move after the setup is the player.
 // `solution` alternates player moves and scripted opponent replies (SAN).
-// Every puzzle is verified against Stockfish: run `npm run verify:puzzles` after editing.
+// Hand-made puzzles are verified against Stockfish: run `npm run verify:puzzles` after editing.
+// The rated ones come from the Lichess puzzle database (CC0): scripts/import-lichess-puzzles.mjs
+import lichessPuzzles from './lichessPuzzles.json';
 
 export type ThemeId = 'mating-nets' | 'queen-sacrifice' | 'opening-traps' | 'pawn-promotion' | 'back-rank' | 'forks' | 'pins-skewers';
 
@@ -10,7 +12,10 @@ export interface Puzzle {
   title: string;
   fen?: string;
   moves?: string; // alternative to fen: moves played from the initial position
+  setup?: string; // opponent move played from `fen` just before the puzzle starts
   solution: string[];
+  rating?: number; // Lichess puzzle rating (difficulty)
+  source?: 'lichess';
   hint: string;
   explanation: string;
 }
@@ -21,19 +26,20 @@ export interface Theme {
   icon: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   description: string;
+  hint: string; // generic hint for the rated puzzles of this theme
 }
 
 export const THEMES: Theme[] = [
-  { id: 'back-rank', name: 'Back Rank Weakness', icon: '🏰', difficulty: 'Beginner', description: 'A king trapped behind its own pawns can be mated on the back rank. Learn to spot it — and to avoid it.' },
-  { id: 'opening-traps', name: 'Opening Traps', icon: '🛡️', difficulty: 'Beginner', description: 'Classic traps from the first moves: Scholar\'s mate, Fool\'s mate, Légal and the Blackburne Shilling.' },
-  { id: 'forks', name: 'Forks & Double Attacks', icon: '🍴', difficulty: 'Beginner', description: 'One piece attacking two targets at once. Knights, pawns and queens are the kings of forks.' },
-  { id: 'pins-skewers', name: 'Pins & Skewers', icon: '📌', difficulty: 'Intermediate', description: 'Attack along a line so the piece in front cannot move — or must move and expose what is behind it.' },
-  { id: 'mating-nets', name: 'Mating Nets', icon: '👑', difficulty: 'Intermediate', description: 'Smothered mate, Arabian mate, the rook ladder: recognise the patterns that trap the enemy king.' },
-  { id: 'queen-sacrifice', name: 'Queen Sacrifices', icon: '⚔️', difficulty: 'Advanced', description: 'Give up your strongest piece to force checkmate. The most spectacular combinations in chess.' },
-  { id: 'pawn-promotion', name: 'Pawn Breakthroughs', icon: '♟️', difficulty: 'Intermediate', description: 'Create and push passed pawns to promotion, even against more pawns.' },
+  { id: 'back-rank', name: 'Back Rank Weakness', icon: '🏰', difficulty: 'Beginner', description: 'A king trapped behind its own pawns can be mated on the back rank. Learn to spot it — and to avoid it.', hint: 'Look at the back rank: is the king boxed in by its own pawns?' },
+  { id: 'opening-traps', name: 'Opening Traps', icon: '🛡️', difficulty: 'Beginner', description: 'Classic traps from the first moves: Scholar\'s mate, Fool\'s mate, Légal and the Blackburne Shilling.', hint: 'Early in the game, look for a loose piece or a weak square near the king.' },
+  { id: 'forks', name: 'Forks & Double Attacks', icon: '🍴', difficulty: 'Beginner', description: 'One piece attacking two targets at once. Knights, pawns and queens are the kings of forks.', hint: 'Find a move that attacks two targets at once.' },
+  { id: 'pins-skewers', name: 'Pins & Skewers', icon: '📌', difficulty: 'Intermediate', description: 'Attack along a line so the piece in front cannot move — or must move and expose what is behind it.', hint: 'Line up a piece with the king or queen behind it.' },
+  { id: 'mating-nets', name: 'Mating Nets', icon: '👑', difficulty: 'Intermediate', description: 'Smothered mate, Arabian mate, the rook ladder: recognise the patterns that trap the enemy king.', hint: 'The king has very few squares: find the move that takes the last ones away.' },
+  { id: 'queen-sacrifice', name: 'Queen Sacrifices', icon: '⚔️', difficulty: 'Advanced', description: 'Give up your strongest piece to force checkmate. The most spectacular combinations in chess.', hint: 'Your queen may be worth giving up if it forces mate.' },
+  { id: 'pawn-promotion', name: 'Pawn Breakthroughs', icon: '♟️', difficulty: 'Intermediate', description: 'Create and push passed pawns to promotion, even against more pawns.', hint: 'A pawn close to promotion can be stronger than a piece.' },
 ];
 
-export const PUZZLES: Puzzle[] = [
+const HANDMADE: Puzzle[] = [
   // Back rank
   { id: 'br1', theme: 'back-rank', title: 'The open e-file', fen: '6k1/5ppp/8/8/8/8/r4PPP/4R1K1 w - - 0 1', solution: ['Re8#'], hint: 'The black king has no escape squares.', explanation: 'Re8# — the pawns on f7, g7 and h7 imprison their own king.' },
   { id: 'br2', theme: 'back-rank', title: 'Queen to the eighth', fen: '6k1/5ppp/8/8/8/8/5PPP/3Q2K1 w - - 0 1', solution: ['Qd8#'], hint: 'Which rank can the king not leave?', explanation: 'Qd8# — a classic back-rank mate with the queen.' },
@@ -68,5 +74,25 @@ export const PUZZLES: Puzzle[] = [
   { id: 'pp1', theme: 'pawn-promotion', title: 'Three against three', fen: '7k/ppp5/8/PPP5/8/8/8/6K1 w - - 0 1', solution: ['b6'], hint: 'Sacrifice pawns to create one unstoppable pawn.', explanation: 'b6! After axb6 c6! or cxb6 a6!, one white pawn breaks through and promotes.' },
   { id: 'pp2', theme: 'pawn-promotion', title: 'Promote with check', fen: '1r5k/P7/8/8/8/8/8/K7 w - - 0 1', solution: ['axb8=Q+'], hint: 'Capture and promote at the same time.', explanation: 'axb8=Q+ wins the rook and gets a new queen with check.' },
 ];
+
+const themeName = (id: ThemeId) => THEMES.find((t) => t.id === id)!.name;
+
+const RATED: Puzzle[] = (lichessPuzzles as { id: string; theme: ThemeId; rating: number; fen: string; setup: string; solution: string[] }[]).map((p) => ({
+  ...p,
+  source: 'lichess',
+  title: `${themeName(p.theme)} · ${p.rating}`,
+  hint: THEMES.find((t) => t.id === p.theme)!.hint,
+  explanation: `Lichess puzzle ${p.id.slice(3)}, rated ${p.rating}.`,
+}));
+
+// Hand-made classics first, then the rated puzzles from easiest to hardest
+export const PUZZLES: Puzzle[] = [...HANDMADE, ...[...RATED].sort((a, b) => a.rating! - b.rating!)];
+
+export const LEVELS = [
+  { id: 'beginner', label: 'Beginner', range: '<1200', min: 0, max: 1200 },
+  { id: 'intermediate', label: 'Intermediate', range: '1200–1800', min: 1200, max: 1800 },
+  { id: 'advanced', label: 'Advanced', range: '1800+', min: 1800, max: 9999 },
+] as const;
+export type LevelId = (typeof LEVELS)[number]['id'];
 
 export const getPuzzlesByTheme = (theme: ThemeId) => PUZZLES.filter((p) => p.theme === theme);

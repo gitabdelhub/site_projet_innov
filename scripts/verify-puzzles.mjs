@@ -5,7 +5,8 @@ import sf from './stockfish-node.cjs';
 import { PUZZLES } from '../src/data/puzzles.ts';
 const eng = await sf.engine();
 let fails = 0;
-for (const p of PUZZLES) {
+// Hand-made puzzles only: the rated ones are verified by Lichess's own pipeline
+for (const p of PUZZLES.filter((x) => !x.source)) {
   const c = new Chess(p.fen);
   if (p.moves) { c.reset(); p.moves.split(' ').forEach((m) => c.move(m)); }
   const problems = [];
