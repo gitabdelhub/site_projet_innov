@@ -107,7 +107,7 @@ export const Home = () => {
             <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent text-2xl mb-6">✨</div>
             <h3 className="text-lg font-bold text-text-primary mb-3">Beautiful Experience</h3>
             <p className="text-text-secondary text-sm leading-relaxed">
-              Hand-crafted pieces, immersive sound effects, smooth animations, and a clean interface designed to let you focus on the game.
+              Classic tournament pieces, immersive sound effects, smooth animations, and a clean interface designed to let you focus on the game.
             </p>
           </div>
         </div>
@@ -128,6 +128,14 @@ export const Home = () => {
           </Link>
         </div>
       </section>
+
+      {/* Credits: required by the licences of the engine and the pieces */}
+      <footer className="py-6 px-6 text-center text-[11px] text-text-secondary leading-relaxed border-t border-gray-200/40">
+        Chess Hub is free software under the GNU GPL v3. Engine:{' '}
+        <a className="underline" href="https://stockfishchess.org" target="_blank" rel="noreferrer">Stockfish</a> (GPL v3, JavaScript build by Niklas Fiekas).
+        {' '}Pieces: cburnett by Colin M.L. Burnett (CC BY-SA 3.0). Elo model trained on public{' '}
+        <a className="underline" href="https://lichess.org" target="_blank" rel="noreferrer">Lichess</a> games.
+      </footer>
     </div>
   );
 };

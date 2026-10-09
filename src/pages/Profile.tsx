@@ -25,7 +25,7 @@ export const Profile = () => {
     <div className="min-h-screen bg-bg-dark py-8">
       <div className="max-w-4xl mx-auto px-6">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-white">My Profile</h1>
+          <h1 className="text-3xl font-bold text-text-primary">My Profile</h1>
           <Link
             to="/"
             className="text-text-secondary hover:text-text-primary"
@@ -34,13 +34,13 @@ export const Profile = () => {
           </Link>
         </div>
 
-        <div className="bg-bg-card rounded-lg p-8 mb-6">
+        <div className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm p-8 mb-6">
           <div className="flex items-center gap-6 mb-8">
             <div className="w-24 h-24 bg-accent rounded-full flex items-center justify-center text-white font-bold text-4xl">
               {user.username[0].toUpperCase()}
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">{user.username}</h2>
+              <h2 className="text-2xl font-bold text-text-primary">{user.username}</h2>
               <p className="text-text-secondary">{user.email}</p>
               <p className="text-text-secondary text-sm mt-1">
                 {isSupabaseConfigured() ? 'Online Account' : 'Guest Player (Local Mode)'}
@@ -68,8 +68,8 @@ export const Profile = () => {
           </div>
         </div>
 
-        <div className="bg-bg-card rounded-lg p-6">
-          <h3 className="text-xl font-bold text-white mb-4">Account Settings</h3>
+        <div className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm p-6">
+          <h3 className="text-xl font-bold text-text-primary mb-4">Account Settings</h3>
           <button
             onClick={signOut}
             className="bg-danger hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"

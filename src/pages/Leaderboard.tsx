@@ -8,23 +8,11 @@ export const Leaderboard = () => {
   
   const configured = isSupabaseConfigured();
 
-  // Mock leaderboard data for local mode fallback
-  const mockUsers = [
-    { id: '1', username: 'GrandMaster', elo_rating: 1850, wins: 45, losses: 12, draws: 8 },
-    { id: '2', username: 'ChessPro', elo_rating: 1720, wins: 38, losses: 15, draws: 10 },
-    { id: '3', username: 'StrategyKing', elo_rating: 1650, wins: 32, losses: 18, draws: 12 },
-    { id: '4', username: 'TacticalGenius', elo_rating: 1580, wins: 28, losses: 20, draws: 15 },
-    { id: '5', username: 'EndgameMaster', elo_rating: 1520, wins: 25, losses: 22, draws: 18 },
-    { id: '6', username: 'OpeningExpert', elo_rating: 1480, wins: 22, losses: 24, draws: 20 },
-    { id: '7', username: 'PawnStorm', elo_rating: 1420, wins: 20, losses: 26, draws: 22 },
-    { id: '8', username: 'KnightRider', elo_rating: 1380, wins: 18, losses: 28, draws: 24 },
-    { id: '9', username: 'BishopBishop', elo_rating: 1350, wins: 16, losses: 30, draws: 26 },
-    { id: '10', username: 'RookiePlayer', elo_rating: 1280, wins: 14, losses: 32, draws: 28 },
-  ];
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Without a database there is no real ranking to show: never display invented players
     if (!configured) {
-      setUsers(mockUsers);
       setLoading(false);
       return;
     }
@@ -36,13 +24,13 @@ export const Leaderboard = () => {
           .from('profiles')
           .select('id, username, elo_rating, wins, losses, draws')
           .order('elo_rating', { ascending: false })
-          .limit(10);
+          .limit(50);
 
         if (error) throw error;
         setUsers(data || []);
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
-        setUsers(mockUsers); // fallback
+        setError('The leaderboard could not be loaded. Try again in a moment.');
       } finally {
         setLoading(false);
       }
@@ -81,7 +69,7 @@ export const Leaderboard = () => {
         <div className="bg-bg-card border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-4 bg-bg-darker border-b border-gray-200/50 flex justify-between items-center">
             <p className="text-text-secondary text-xs font-bold uppercase tracking-wider">
-              {configured ? '🏆 Live Global Standings' : '🎮 Global Standings (Local Mode)'}
+              🏆 Live Global Standings
             </p>
           </div>
           
@@ -130,7 +118,9 @@ export const Leaderboard = () => {
                   {users.length === 0 && (
                     <tr>
                       <td colSpan={4} className="text-center py-12 text-text-secondary text-sm italic">
-                        No players registered yet
+                        {!configured
+                          ? 'The online leaderboard is off in local mode (no database configured).'
+                          : error ?? 'No players registered yet'}
                       </td>
                     </tr>
                   )}
