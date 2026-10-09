@@ -44,3 +44,6 @@ ml_backend/__pycache__/
 # Temporary files
 *.tmp
 *.temp
+
+# Lichess games downloaded to train the Elo model (rebuild with ml/collect-lichess.mjs)
+ml/data/games.ndjson
