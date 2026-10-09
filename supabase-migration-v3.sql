@@ -178,7 +178,7 @@ BEGIN
   SELECT * INTO g FROM games WHERE id = p_game_id FOR UPDATE;
   IF NOT FOUND OR g.status <> 'playing' OR g.ply <> p_expected_ply THEN RETURN 'stale'; END IF;
   white_to_move := split_part(g.fen, ' ', 2) = 'w';
-  IF p_player <> CASE WHEN white_to_move THEN g.white_player_id ELSE g.black_player_id END THEN
+  IF p_player <> (CASE WHEN white_to_move THEN g.white_player_id ELSE g.black_player_id END) THEN
     RAISE EXCEPTION 'Not your turn';
   END IF;
 

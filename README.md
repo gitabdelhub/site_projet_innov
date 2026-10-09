@@ -15,7 +15,7 @@ Tout le calcul lourd (moteur d'échecs, estimation du niveau) se fait dans le na
 | **Même moteur qu'à l'entraînement** | Stockfish 18 dans le navigateur : ses évaluations s'écartent de moins de 10 centipions de celles de Lichess (l'ancien Stockfish 10 s'en écartait de 50) |
 | **Jeu en ligne impossible à truquer** | Chaque coup est vérifié par le serveur ; la pendule, le résultat et l'Elo sont décidés par la base de données, jamais par le navigateur |
 | **335 puzzles** (20 faits main + 315 notés de la base Lichess) | Classés par thème et par niveau ; tous rejoués automatiquement par les tests |
-| **Vérifié automatiquement** | 21 tests, vérification des puzzles par Stockfish, compilation : à chaque envoi de code ([.github/workflows/ci.yml](.github/workflows/ci.yml)) |
+| **Vérifié automatiquement** | 33 tests (dont 12 qui jouent contre une vraie base PostgreSQL et tentent de tricher), vérification des puzzles par Stockfish, compilation : à chaque envoi de code ([.github/workflows/ci.yml](.github/workflows/ci.yml)) |
 
 ## Fonctionnalités
 
@@ -74,7 +74,7 @@ Ouvrez http://localhost:3000. Jeu contre l'ordinateur, entraînement et prédict
 ## Vérifier le projet
 
 ```bash
-npm test                 # 21 tests : contrôle des coups côté serveur, analyse, modèle Elo, puzzles
+npm test                 # 33 tests : coups côté serveur, base de données (PostgreSQL embarqué), analyse, modèle Elo, puzzles
 npm run verify:puzzles   # chaque puzzle fait main est vérifié par Stockfish
 npm run build            # vérification des types + build de production
 ```
