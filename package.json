@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "verify:puzzles": "node scripts/verify-puzzles.mjs"
+    "verify:puzzles": "vite-node scripts/verify-puzzles.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -29,6 +29,7 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
+    "vite-node": "^2.1.9",
     "vitest": "^2.1.9"
   },
   "license": "GPL-3.0-or-later"

@@ -1,5 +1,5 @@
 // Verifies every puzzle: legal moves, real mates, and that each player move is Stockfish's choice.
-// Usage: npm run verify:puzzles (Node 22.6+ for TypeScript imports)
+// Usage: npm run verify:puzzles
 import { Chess } from 'chess.js';
 import sf from './stockfish-node.cjs';
 import { PUZZLES } from '../src/data/puzzles.ts';
