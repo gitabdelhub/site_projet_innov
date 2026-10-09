@@ -6,6 +6,7 @@
 --   * Friend challenge by link or code (casual or "training" game, no rating change)
 --   * Puzzle duel: two players race on the same puzzles
 --   * Study room: a shared board that every member can move
+--   * A daily limit for the AI teacher (/api/coach)
 --
 -- As in v3, the browser never writes these tables directly: every change goes
 -- through a function below, which checks who is calling.
@@ -346,12 +347,34 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- ---------- 6. Who may read what ------------------------------------------
+-- ---------- 6. AI teacher: daily limit per player -------------------------
+-- Called by /api/coach with the service key. TRUE while the player is under the limit.
+CREATE TABLE IF NOT EXISTS public.ai_usage (
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, day)
+);
+
+CREATE OR REPLACE FUNCTION public.ai_take_quota(p_user UUID, p_limit INTEGER)
+RETURNS BOOLEAN AS $$
+DECLARE used INTEGER;
+BEGIN
+  INSERT INTO ai_usage (user_id, day, count) VALUES (p_user, CURRENT_DATE, 1)
+    ON CONFLICT (user_id, day) DO UPDATE SET count = ai_usage.count + 1
+    RETURNING count INTO used;
+  DELETE FROM ai_usage WHERE day < CURRENT_DATE - 7;
+  RETURN used <= p_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ---------- 7. Who may read what ------------------------------------------
 ALTER TABLE invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE duels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE study_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE study_members ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE invites, duels, study_rooms, study_members FROM anon, authenticated;
+ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE invites, duels, study_rooms, study_members, ai_usage FROM anon, authenticated;
 
 -- Invitations are only read through invite_info()
 GRANT SELECT ON duels, study_rooms, study_members TO authenticated;
@@ -376,6 +399,8 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 REVOKE ALL ON FUNCTION public.new_share_code() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_take_quota(UUID, INTEGER) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ai_take_quota(UUID, INTEGER) TO service_role;
 REVOKE ALL ON FUNCTION public.resolve_code(TEXT), public.create_invite(TEXT, INTEGER, INTEGER, TEXT),
   public.invite_info(TEXT), public.accept_invite(TEXT), public.cancel_invite(TEXT),
   public.create_duel(TEXT[]), public.join_duel(TEXT), public.duel_answer(UUID, INTEGER, BOOLEAN),

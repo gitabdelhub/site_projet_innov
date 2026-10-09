@@ -88,7 +88,7 @@ export const describeMove = (fenBefore: string, move: string, t: T): string[] =>
   return lines;
 };
 
-const uciToSan = (fen: string, uci: string) => {
+export const uciToSan = (fen: string, uci: string) => {
   try {
     const chess = new Chess(fen);
     return chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).san;

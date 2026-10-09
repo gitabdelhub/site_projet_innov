@@ -10,6 +10,7 @@ import { judgeLessonMove, keepTurn, lessonBoard, starsSolution } from '../lib/le
 import { updateProgress, useProgress } from '../lib/progress';
 import { soundEffects } from '../utils/soundEffects';
 import { useI18n, pick } from '../i18n/I18nProvider';
+import { AiTeacher } from '../components/AiTeacher';
 
 const LessonArt: React.FC<{ lesson: Lesson; className?: string }> = ({ lesson, className = 'w-7 h-7' }) =>
   'piece' in lesson.art ? renderPieceSVG('w', lesson.art.piece, className) : <Icon name={lesson.art.icon} className={className} />;
@@ -285,6 +286,14 @@ export const LearnLesson: React.FC = () => {
                 )}
               </div>
             </div>
+
+            <AiTeacher
+              kind="lesson"
+              title={t('ai.lessonTitle')}
+              cta={t('ai.lessonCta')}
+              withQuestion
+              payload={() => ({ lesson: pick(lesson.title, lang), exercise: pick(ex.prompt, lang) })}
+            />
           </div>
         </div>
       </div>

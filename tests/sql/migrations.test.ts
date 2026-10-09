@@ -269,6 +269,14 @@ describe('playing and learning together (migration v5)', () => {
     await fails(as('authenticated', A, `INSERT INTO study_members (code, user_id, username) VALUES ($1, '${C}', 'carol')`, [code]));
   });
 
+  it('limits the AI teacher per player and per day, from the server only', async () => {
+    await fails(as('authenticated', A, `SELECT ai_take_quota('${A}', 100)`));
+    const take = async () => (await as('service_role', null, `SELECT ai_take_quota('${A}', 2) AS ok`)).rows[0].ok;
+    expect([await take(), await take(), await take()]).toEqual([true, true, false]);
+    expect((await as('service_role', null, `SELECT ai_take_quota('${B}', 2) AS ok`)).rows[0].ok).toBe(true);
+    await fails(as('authenticated', A, 'SELECT * FROM ai_usage'));
+  });
+
   it('still rates ranked games after v5', async () => {
     const before = await elo(A);
     const g = (await db.query<{ id: string }>(`INSERT INTO games (white_player_id, black_player_id, white_player_username, black_player_username, status)

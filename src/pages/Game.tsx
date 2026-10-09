@@ -922,6 +922,7 @@ export const Game = () => {
                     isRewindMode={isRewindMode}
                     setIsRewindMode={setIsRewindMode}
                     totalMoves={moves.length}
+                    result={finalResult ? (finalResult.winner === null ? 'draw' : finalResult.winner === userColor ? 'win' : 'loss') : undefined}
                   />
                 </div>
               )}

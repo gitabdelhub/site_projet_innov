@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import type { Move } from '../types/chess';
-import { evaluatePositions, judgeMoves, formatEval, type AnalyzedMove, type MoveCategory } from '../lib/analysis';
+import { evaluatePositions, judgeMoves, formatEval, summarize, type AnalyzedMove, type MoveCategory } from '../lib/analysis';
 import { useI18n, type MessageKey } from '../i18n/I18nProvider';
 import { localSan } from '../i18n/san';
-import { explainMove } from '../lib/explain';
+import { explainMove, uciToSan } from '../lib/explain';
+import { AiTeacher } from './AiTeacher';
 import { addMistakes, mistakesFromGame } from '../lib/adaptive';
 import { updateProgress } from '../lib/progress';
 import { Icon } from './Icon';
@@ -20,6 +21,7 @@ interface GameRewinderProps {
   isRewindMode: boolean;
   setIsRewindMode: (mode: boolean) => void;
   totalMoves: number;
+  result?: 'win' | 'loss' | 'draw';
 }
 
 const COMMENTS: Record<Category, MessageKey> = {
@@ -57,6 +59,7 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
   isRewindMode,
   setIsRewindMode,
   totalMoves,
+  result,
 }) => {
   const { t, lang } = useI18n();
   const [analysis, setAnalysis] = useState<AnalyzedMove[] | null>(null);
@@ -283,6 +286,38 @@ export const GameRewinder: React.FC<GameRewinderProps> = ({
                 </div>
               ))}
             </div>
+          )}
+
+          {analysis && positions && (
+            <AiTeacher
+              kind="review"
+              title={t('ai.reviewTitle')}
+              cta={t('ai.reviewCta')}
+              compact
+              payload={() => {
+                const s = summarize(analysis, playerColor);
+                const moments = analysis
+                  .map((m, i) => ({ m, i }))
+                  .filter(({ m }) => m.color === playerColor && (m.category === 'inaccuracy' || m.category === 'mistake' || m.category === 'blunder'))
+                  .sort((a, b) => b.m.loss - a.m.loss)
+                  .slice(0, 8)
+                  .sort((a, b) => a.i - b.i)
+                  .map(({ m, i }) => ({
+                    n: Math.floor(i / 2) + 1,
+                    san: m.san,
+                    cat: m.category,
+                    loss: m.loss,
+                    best: positions.best[i] ? uciToSan(positions.fens[i], positions.best[i]!) ?? undefined : undefined,
+                  }));
+                return {
+                  side: playerColor,
+                  result: result ?? 'unknown',
+                  accuracy: s.accuracy,
+                  counts: { best: s.best, inaccuracies: s.inaccuracies, mistakes: s.mistakes, blunders: s.blunders },
+                  moments,
+                };
+              }}
+            />
           )}
 
           <button

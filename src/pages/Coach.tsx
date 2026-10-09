@@ -8,6 +8,7 @@ import { useI18n, pick, type MessageKey } from '../i18n/I18nProvider';
 import { Sparkline } from '../components/Sparkline';
 import { dueMistakes, suggestedLevel, weakThemes } from '../lib/adaptive';
 import { LESSONS } from '../data/lessons';
+import { AiTeacher } from '../components/AiTeacher';
 
 const NEXT_LINK = 'inline-flex items-center justify-between gap-2 bg-bg-dark hover:bg-bg-darker border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors';
 
@@ -129,6 +130,25 @@ export const Coach: React.FC = () => {
                 </Link>
               </div>
             </div>
+          </div>
+          <div className="mt-5">
+            <AiTeacher
+              kind="summary"
+              title={t('ai.summaryTitle')}
+              cta={t('ai.summaryCta')}
+              payload={() => ({
+                puzzleRating: progress.puzzleRating,
+                puzzleRated: progress.puzzleRated,
+                weak: weak.map((w) => ({ name: pick(THEMES.find((x) => x.id === w.theme)!.name, lang), rate: Math.round(w.rate * 100) })),
+                style: progress.style,
+                levels: progress.levelHistory.map((l) => l.elo),
+                lessonsDone: progress.lessonsDone.length,
+                lessonsTotal: LESSONS.length,
+                mistakesDue: due,
+                mistakesTotal: progress.mistakes.length,
+                aiLevel,
+              })}
+            />
           </div>
         </section>
 
