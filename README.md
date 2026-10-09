@@ -12,7 +12,7 @@ Tout le calcul lourd (moteur d'échecs, estimation du niveau) se fait dans le na
 |---|---|
 | **Estimation du niveau sur un vrai modèle**, entraîné sur **3 769 parties Lichess classées** (de 600 à 3 000 Elo) | Testé sur des joueurs que le modèle n'a jamais vus : erreur moyenne **362 points sur une partie**, contre 501 pour l'ancienne formule et 604 sans information ([ml/RESULTS.md](ml/RESULTS.md)) |
 | **La marge d'erreur est affichée honnêtement** | Le site écrit « probablement entre X et Y » ; l'intervalle vient des mesures, il se resserre quand on analyse plusieurs parties |
-| **Même moteur qu'à l'entraînement** | Stockfish 18 dans le navigateur : ses évaluations s'écartent de moins de 10 centipions de celles de Lichess (l'ancien Stockfish 10 s'en écartait de 50) |
+| **Mesuré dans les conditions réelles du site** | 200 parties de 40 joueurs exclus de l'entraînement, réanalysées par le moteur du site (Stockfish 18) : erreur moyenne **374** contre 366 avec les analyses de Lichess. L'ancien moteur (Stockfish 10) faussait la mesure : ses évaluations s'écartaient d'environ 50 centipions de celles de Lichess, contre moins de 10 aujourd'hui |
 | **Jeu en ligne impossible à truquer** | Chaque coup est vérifié par le serveur ; la pendule, le résultat et l'Elo sont décidés par la base de données, jamais par le navigateur |
 | **335 puzzles** (20 faits main + 315 notés de la base Lichess) | Classés par thème et par niveau ; tous rejoués automatiquement par les tests |
 | **Vérifié automatiquement** | 33 tests (dont 12 qui jouent contre une vraie base PostgreSQL et tentent de tricher), vérification des puzzles par Stockfish, compilation : à chaque envoi de code ([.github/workflows/ci.yml](.github/workflows/ci.yml)) |

@@ -33,6 +33,18 @@ Ratings are Lichess ratings of the game's time control (blitz, rapid or classica
 | 2200-2599 | 1246 | 286 |
 | 2600-2999 | 1245 | 448 |
 
+## In the website's real conditions
+
+200 games of 40 players left out of training, analysed twice:
+with Lichess's evaluations, and with the website's own engine (Stockfish 18 lite, depth 12).
+
+| Evaluations from | Mean error (one game) | Within ±200 |
+|---|---|---|
+| Lichess analysis | 366 | 33% |
+| Website engine | 374 | 34% |
+
+Average gap between the two estimates for the same game: 231 points.
+
 ## What the model looks at most
 
 | Feature | Importance |
