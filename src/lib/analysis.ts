@@ -1,8 +1,11 @@
 import { Chess } from 'chess.js';
 
 export const MATE_SCORE = 10000;
+// Stockfish 18 (lite) at depth 12: about 2-4 s for a whole game, and its scores match
+// Lichess's analysis (the data the Elo model was trained on) within ~10 centipawns.
+export const ENGINE_URL = '/stockfish-18-lite-single.js';
 const ANALYSIS_DEPTH = 12;
-const ANALYSIS_MOVETIME = 250; // ms per position, keeps a 40-move game under ~25s
+const ANALYSIS_MAX_MS = 2000; // safety cap for a single very complex position
 
 export type MoveCategory = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
 
@@ -35,7 +38,7 @@ const moveAccuracy = (winBefore: number, winAfter: number) => {
 
 // Evaluate every position with a dedicated Stockfish worker. Returns White-POV scores.
 export const evaluatePositions = (fens: string[], onProgress?: (done: number) => void) => {
-  const worker = new Worker('/stockfish.js');
+  const worker = new Worker(ENGINE_URL);
   let cancelled = false;
 
   const evaluate = (fen: string) =>
@@ -44,6 +47,8 @@ export const evaluatePositions = (fens: string[], onProgress?: (done: number) =>
       const whiteToMove = fen.split(' ')[1] === 'w';
       worker.onmessage = (e) => {
         const line = String(e.data);
+        // Bound scores come from an unfinished search step: keep the last exact one
+        if (/ (upper|lower)bound/.test(line)) return;
         const cp = line.match(/score cp (-?\d+)/);
         const mate = line.match(/score mate (-?\d+)/);
         if (cp) score = parseInt(cp[1], 10);
@@ -54,7 +59,7 @@ export const evaluatePositions = (fens: string[], onProgress?: (done: number) =>
         if (line.startsWith('bestmove')) resolve(whiteToMove ? score : -score);
       };
       worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go depth ${ANALYSIS_DEPTH} movetime ${ANALYSIS_MOVETIME}`);
+      worker.postMessage(`go depth ${ANALYSIS_DEPTH} movetime ${ANALYSIS_MAX_MS}`);
     });
 
   const promise = (async () => {

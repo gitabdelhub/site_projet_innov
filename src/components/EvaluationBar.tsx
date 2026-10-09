@@ -40,7 +40,7 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({ fen }) => {
       const whiteDiff = whiteScore - blackScore;
       
       if (whiteDiff === 0) {
-        return { score: 0.5, text: '0.0', whiteDiff };
+        return { score: 0.5, text: '=', whiteDiff };
       }
       
       // Calculate a ratio for the bar (50% is equal, up to 90% for +10, down to 10% for -10)
@@ -58,13 +58,15 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({ fen }) => {
 
   const { score, text, whiteDiff } = getMaterialScore();
   
-  // White is on the bottom, Black is on the top.
-  // Black is dark blue (#2058d0 in our inspiration colors is the board dark, let's use gray/black for Black side and pure white/cream for White side)
-  // Wait, the Black portion is at the top, White is at the bottom.
+  // Material balance (not an engine evaluation): Black on top, White at the bottom
   const blackPercentage = (1 - score) * 100;
 
   return (
-    <div className="w-6 md:w-8 h-full bg-gray-200 rounded-md overflow-hidden flex flex-col border border-gray-300 shadow-inner relative select-none">
+    <div
+      title="Material balance (pawn = 1, knight/bishop = 3, rook = 5, queen = 9)"
+      aria-label={`Material balance ${whiteDiff === 0 ? 'equal' : text}`}
+      className="w-6 md:w-8 h-full bg-gray-200 rounded-md overflow-hidden flex flex-col border border-gray-300 shadow-inner relative select-none"
+    >
       {/* Black area (top portion of the bar) */}
       <div 
         className="w-full bg-[#181818] transition-all duration-500 ease-out relative"
@@ -83,7 +85,7 @@ export const EvaluationBar: React.FC<EvaluationBarProps> = ({ fen }) => {
       >
         {whiteDiff >= 0 && (
           <span className="absolute top-2 left-0 right-0 text-center text-[10px] font-bold text-gray-800 z-10">
-            {whiteDiff === 0 ? '0.0' : text}
+            {whiteDiff === 0 ? '=' : text}
           </span>
         )}
       </div>

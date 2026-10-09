@@ -3,7 +3,7 @@
 import { Chess } from 'chess.js';
 import sf from './stockfish-node.cjs';
 import { PUZZLES } from '../src/data/puzzles.ts';
-const eng = sf.engine();
+const eng = await sf.engine();
 let fails = 0;
 for (const p of PUZZLES) {
   const c = new Chess(p.fen);

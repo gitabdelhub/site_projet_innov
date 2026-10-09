@@ -1,0 +1,5 @@
+game,player,collected_user,side,speed,rating,lichess_acpl,my_acpl,my_accuracy,my_best_rate,my_inaccuracy_rate,my_mistake_rate,my_blunder_rate,my_opening_loss,my_balanced_acpl,my_balanced_blunder_rate,my_loss_p75,opp_acpl,opp_accuracy,opp_best_rate,opp_blunder_rate,opp_balanced_acpl,my_moves,my_score
+CIfufi1w,ethan_hale,raganox,w,classical,2176,21,69.30435,78.83617,0.13043,0.5,0.02174,0.02174,48.2,60.27907,0,83,50.17391,82.27542,0.08696,0,53.07143,46,0
+CIfufi1w,raganox,raganox,b,classical,2353,5,50.17391,82.27542,0.08696,0.30435,0,0,50.4,53.07143,0,64,69.30435,78.83617,0.13043,0.02174,60.27907,46,1
+uXJJWWcb,raganox,raganox,w,classical,2365,14,68.29688,89.45778,0.5,0.17188,0.04688,0.0625,48.5,66.73913,0,66,76.57143,87.42097,0.42857,0.04762,100.11538,64,1
+uXJJWWcb,speedysorcerer,raganox,b,classical,2452,29,76.57143,87.42097,0.42857,0.19048,0.07937,0.04762,57.2,100.11538,0.03846,80,68.29688,89.45778,0.5,0.0625,66.73913,63,0

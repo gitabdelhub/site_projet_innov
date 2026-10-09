@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Difficulty } from '../types/chess';
+import { ENGINE_URL } from '../lib/analysis';
 
 interface StockfishHook {
   isReady: boolean;
@@ -9,7 +10,7 @@ interface StockfishHook {
   newGame: () => void;
 }
 
-// Engine settings per level (Stockfish 10: Skill Level 0-20).
+// Engine settings per level (Stockfish 18: Skill Level 0-20).
 // randomMoveChance lets the lowest levels make genuinely human-like mistakes.
 export const LEVEL_SETTINGS: Record<Difficulty, { skill: number; depth: number; movetime: number; randomMoveChance: number; elo: number; label: string }> = {
   1: { skill: 0, depth: 1, movetime: 100, randomMoveChance: 0.35, elo: 600, label: 'Beginner' },
@@ -26,7 +27,7 @@ export const useStockfish = (): StockfishHook => {
   const resolveMoveRef = useRef<((move: string | null) => void) | null>(null);
 
   useEffect(() => {
-    const worker = new Worker('/stockfish.js');
+    const worker = new Worker(ENGINE_URL);
     workerRef.current = worker;
 
     worker.onmessage = (e) => {
