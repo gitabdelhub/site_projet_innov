@@ -6,9 +6,9 @@ import { Leaderboard } from './pages/Leaderboard';
 import { Profile } from './pages/Profile';
 import { Game } from './pages/Game';
 import { Play } from './pages/Play';
+import { Analyse } from './pages/Analyse';
 import { I18nProvider } from './i18n';
 import { Coach } from './pages/Coach';
-import { CoachElo } from './pages/CoachElo';
 import { CoachTactics } from './pages/CoachTactics';
 import { CoachPosition } from './pages/CoachPosition';
 import { CoachThemes } from './pages/CoachThemes';
@@ -28,7 +28,8 @@ function App() {
           <Route path="/play" element={<Play />} />
           <Route path="/online" element={<Game />} />
           <Route path="/coach" element={<Coach />} />
-          <Route path="/coach/elo" element={<CoachElo />} />
+          <Route path="/coach/elo" element={<Analyse />} />
+          <Route path="/coach/analyse" element={<Analyse />} />
           <Route path="/coach/tactics" element={<CoachTactics />} />
           <Route path="/coach/position" element={<CoachPosition />} />
           <Route path="/coach/themes" element={<CoachThemes />} />

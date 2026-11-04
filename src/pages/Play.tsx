@@ -19,6 +19,8 @@ import {
 import { Board } from '../components/board/Board';
 import { MoveList } from '../components/board/MoveList';
 import { GameReview } from '../components/analysis/GameReview';
+import { EloPanel } from '../components/analysis/EloPanel';
+import type { GameAnalysis } from '../engine/analysis';
 import { useEngineGame } from '../hooks/useEngineGame';
 import { ENGINE_LEVELS, levelForElo } from '../engine/levels';
 import { materialFromFen, outcomeFor, START_FEN, type Color } from '../lib/chessGame';
@@ -162,6 +164,7 @@ export const Play = () => {
   const g = useEngineGame();
   const [flipped, setFlipped] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
 
   if (!g.game) {
     return (
@@ -238,6 +241,17 @@ export const Play = () => {
           playerColor={player}
           whiteName={player === 'w' ? t('play.you') : `Stockfish ~${level.elo}`}
           blackName={player === 'b' ? t('play.you') : `Stockfish ~${level.elo}`}
+          onAnalysed={setAnalysis}
+          aside={
+            <EloPanel
+              startFen={game.startFen}
+              moves={game.moves}
+              analysis={analysis}
+              color={player}
+              source="game"
+              gameId={game.id}
+            />
+          }
         />
       </div>
     );
@@ -283,7 +297,10 @@ export const Play = () => {
                     {over.result} · {t(`reason.${over.reason}` as MessageKey)}
                   </p>
                   <button
-                    onClick={() => setReviewing(true)}
+                    onClick={() => {
+                      setAnalysis(null);
+                      setReviewing(true);
+                    }}
                     className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-white font-bold py-3 rounded-xl mb-2"
                   >
                     <LineChart size={18} /> {t('result.analyse')}

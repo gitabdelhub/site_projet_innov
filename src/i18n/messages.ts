@@ -84,7 +84,31 @@ const fr = {
   'review.cls.inaccuracy': 'Imprécision',
   'review.cls.mistake': 'Erreur',
   'review.cls.blunder': 'Gaffe',
+  'elo.title': 'Elo prédit par notre modèle',
+  'elo.titleEstimate': 'Elo estimé',
+  'elo.predicting': 'Prédiction en cours...',
+  'elo.waitAnalysis': 'En attente de l’analyse Stockfish...',
+  'elo.method.model-browser': 'Modèle ML exécuté dans ton navigateur',
+  'elo.method.model-api': 'Modèle ML exécuté sur notre serveur',
+  'elo.method.estimate': 'Estimation provisoire (modèle ML indisponible)',
+  'elo.shortGame': 'partie courte, résultat moins fiable',
+  'elo.trainCta': 'Exercices adaptés',
+  'elo.playCta': 'Rejouer',
+
+  'analyse.title': 'Analyser une partie',
+  'analyse.subtitle': 'Colle une partie au format PGN : tu obtiens l’Elo prédit et une analyse coup par coup.',
+  'analyse.paste': 'Partie au format PGN',
+  'analyse.go': 'Analyser',
+  'analyse.file': 'Fichier .pgn',
+  'analyse.sample': 'Exemple',
+  'analyse.invalid': 'PGN invalide : vérifie que la partie contient des coups légaux.',
+  'analyse.reviewTitle': 'Analyse de la partie',
+  'analyse.another': 'Autre partie',
+  'analyse.whichSide': 'Prédire pour :',
+  'analyse.recent': 'Tes dernières parties',
+  'analyse.vsEngine': 'Contre Stockfish ~{elo}',
 };
+
 
 export type MessageKey = keyof typeof fr;
 export type Lang = 'fr' | 'en';
@@ -173,6 +197,30 @@ const en: Record<MessageKey, string> = {
   'review.cls.inaccuracy': 'Inaccuracy',
   'review.cls.mistake': 'Mistake',
   'review.cls.blunder': 'Blunder',
+  'elo.title': 'Elo predicted by our model',
+  'elo.titleEstimate': 'Estimated Elo',
+  'elo.predicting': 'Predicting...',
+  'elo.waitAnalysis': 'Waiting for the Stockfish analysis...',
+  'elo.method.model-browser': 'ML model running in your browser',
+  'elo.method.model-api': 'ML model running on our server',
+  'elo.method.estimate': 'Temporary estimate (ML model unavailable)',
+  'elo.shortGame': 'short game, less reliable',
+  'elo.trainCta': 'Matching puzzles',
+  'elo.playCta': 'Play again',
+
+  'analyse.title': 'Analyse a game',
+  'analyse.subtitle': 'Paste a PGN game: get the predicted Elo and a move by move review.',
+  'analyse.paste': 'Game in PGN format',
+  'analyse.go': 'Analyse',
+  'analyse.file': '.pgn file',
+  'analyse.sample': 'Example',
+  'analyse.invalid': 'Invalid PGN: check that the game contains legal moves.',
+  'analyse.reviewTitle': 'Game review',
+  'analyse.another': 'Another game',
+  'analyse.whichSide': 'Predict for:',
+  'analyse.recent': 'Your latest games',
+  'analyse.vsEngine': 'Against Stockfish ~{elo}',
 };
+
 
 export const messages: Record<Lang, Record<MessageKey, string>> = { fr, en };

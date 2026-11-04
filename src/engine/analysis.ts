@@ -103,7 +103,7 @@ const cache = new Map<string, GameAnalysis>();
 export const analyseGame = async (
   startFen: string,
   moves: PlayedMove[],
-  { depth = 12, onProgress }: { depth?: number; onProgress?: (done: number, total: number) => void } = {},
+  { depth = 14, onProgress }: { depth?: number; onProgress?: (done: number, total: number) => void } = {},
 ): Promise<GameAnalysis | null> => {
   const key = `${depth}|${startFen}|${moves.map((m) => m.uci).join(' ')}`;
   const hit = cache.get(key);
@@ -117,7 +117,7 @@ export const analyseGame = async (
     const fen = fens[i];
     const terminal = terminalCp(fen);
     if (terminal !== null) {
-      const score: Score = terminal === 0 ? { cp: 0 } : { mate: 0 };
+      const score: Score = { cp: terminal };
       positions.push({ fen, score, cp: terminal, bestUci: null, bestSan: null });
     } else {
       const r = await engine.search(fen, { depth });

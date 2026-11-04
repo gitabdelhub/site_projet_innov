@@ -87,7 +87,7 @@ export const GameReview = ({
   playerColor = null,
   whiteName,
   blackName,
-  depth = 12,
+  depth = 14,
   onAnalysed,
   aside,
 }: GameReviewProps) => {

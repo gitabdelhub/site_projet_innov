@@ -211,6 +211,7 @@ export const scoreToCp = (s: Score | null | undefined): number => {
 
 export const formatScore = (s: Score | null | undefined): string => {
   if (!s) return '0.0';
+  if (s.cp !== undefined && Math.abs(s.cp) >= 10000) return s.cp > 0 ? '1-0' : '0-1';
   if (s.mate !== undefined) return `${s.mate > 0 ? '' : '-'}M${Math.abs(s.mate)}`;
   const v = (s.cp ?? 0) / 100;
   return `${v > 0 ? '+' : ''}${v.toFixed(1)}`;
