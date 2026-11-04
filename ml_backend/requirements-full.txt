@@ -1,0 +1,6 @@
+-r requirements.txt
+# Only needed to load the full 629 MB model locally (modele_elo_optimise_final.pkl)
+scikit-learn==1.6.1
+joblib
+pandas
+numpy

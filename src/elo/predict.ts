@@ -79,7 +79,7 @@ export const predictElo = async (input: PredictInput): Promise<EloPrediction> =>
         );
         if (res.ok) {
           const data = await res.json();
-          if (data.method === 'ml_model' && Number.isFinite(data.predicted_elo)) {
+          if (String(data.method).startsWith('ml_model') && Number.isFinite(data.predicted_elo)) {
             return { elo: clampElo(data.predicted_elo), method: 'model-api', margin: 200 };
           }
         }

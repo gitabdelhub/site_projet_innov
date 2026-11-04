@@ -1,98 +1,148 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pickle
-import numpy as np
+"""
+Chess Hub Elo prediction API.
+
+POST /api/predict-elo   {"features": [ACPL, Blunders, ExcellentRate, GoodMoveRate]}
+GET  /api/health
+
+Model loading order:
+1. modele_elo_optimise_final/modele_elo_optimise_final.pkl (full model, 629 MB, local mode)
+   The file is a dict {"model": StackingRegressor, "scaler": MinMaxScaler, ...}.
+2. public/models/elo_model.json (compact export, same model, a few MB, used on Render)
+If neither is available the API answers 503: the website then computes the
+prediction in the browser with the same compact model.
+"""
+import json
 import os
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FULL_MODEL_PATH = os.environ.get(
+    "ELO_MODEL_PATH", os.path.join(ROOT, "modele_elo_optimise_final", "modele_elo_optimise_final.pkl")
+)
+COMPACT_MODEL_PATH = os.environ.get(
+    "ELO_COMPACT_MODEL_PATH",
+    os.path.join(ROOT, "public", "models", "elo_model.json")
+    if os.path.exists(os.path.join(ROOT, "public", "models", "elo_model.json"))
+    else os.path.join(os.path.dirname(os.path.abspath(__file__)), "elo_model.json"),
+)
+FEATURES = ["ACPL", "Blunders", "ExcellentRate", "GoodMoveRate"]
 
 app = Flask(__name__)
 CORS(app)
 
-# Load the ML model
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'modele_elo_optimise_final', 'modele_elo_optimise_final.pkl')
 
-model = None
-model_loaded = False
+class FullModel:
+    method = "ml_model"
 
-try:
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
-    model_loaded = True
-    print("ML Model loaded successfully")
-except Exception as e:
-    print(f"Error loading model: {e}")
-    print("Using fallback prediction method")
-    model = None
+    def __init__(self, path):
+        import joblib  # noqa: PLC0415
+        import pandas as pd  # noqa: PLC0415
 
-def fallback_prediction(features):
-    """Fallback prediction when ML model is not available"""
-    # Simple heuristic based on game features
-    base_elo = 1200
-    
-    # Number of moves (longer games usually indicate higher level)
-    move_bonus = min(features[0] * 5, 200) if len(features) > 0 else 0
-    
-    # Captures (more captures = more tactical play)
-    capture_bonus = min(features[2] * 10, 100) if len(features) > 2 else 0
-    
-    # Checks (more checks = more aggressive play)
-    check_bonus = min(features[3] * 15, 150) if len(features) > 3 else 0
-    
-    predicted_elo = base_elo + move_bonus + capture_bonus + check_bonus
-    return min(max(predicted_elo, 800), 2800)  # Clamp between 800 and 2800
+        self._pd = pd
+        bundle = joblib.load(path)
+        self.model = bundle["model"]
+        self.scaler = bundle["scaler"]
+        self.features = list(getattr(self.scaler, "feature_names_in_", FEATURES))
 
-@app.route('/api/predict-elo', methods=['POST'])
-def predict_elo():
-    """
-    Predict Elo rating from game data
-    Expected JSON payload:
-    {
-        "features": [array of numerical features from the game]
-    }
-    """
-    try:
-        data = request.json
-        features = data.get('features', [])
-        
-        if not features:
-            return jsonify({"error": "No features provided"}), 400
-        
-        # Convert to numpy array and reshape for prediction
-        features_array = np.array(features).reshape(1, -1)
-        
-        if model_loaded and model is not None:
-            # Use ML model
-            prediction = model.predict(features_array)[0]
-            return jsonify({
-                "predicted_elo": float(prediction),
-                "status": "success",
-                "method": "ml_model"
-            })
-        else:
-            # Use fallback prediction
-            prediction = fallback_prediction(features)
-            return jsonify({
-                "predicted_elo": float(prediction),
-                "status": "success",
-                "method": "fallback"
-            })
-    except Exception as e:
-        # If ML prediction fails, use fallback
+    def predict(self, x):
+        frame = self._pd.DataFrame([x], columns=self.features)
+        return float(self.model.predict(self.scaler.transform(frame))[0])
+
+
+class CompactModel:
+    method = "ml_model_compact"
+
+    def __init__(self, path):
+        with open(path, encoding="utf-8") as fh:
+            self.m = json.load(fh)
+        self.features = self.m["features"]
+        axes = self.m["rf_grid"]["axes"]
+        self.dims = [len(a) for a in axes]
+
+    def _scale(self, x):
+        lo, hi = self.m["scaler"]["min"], self.m["scaler"]["max"]
+        return [0.0 if h == l else (v - l) / (h - l) for v, l, h in zip(x, lo, hi)]
+
+    def _rf(self, x):
+        axes, values = self.m["rf_grid"]["axes"], self.m["rf_grid"]["values"]
+        idx, w = [], []
+        for i, a in enumerate(axes):
+            v = min(max(x[i], a[0]), a[-1])
+            j = 0
+            while j < len(a) - 2 and a[j + 1] <= v:
+                j += 1
+            idx.append(j)
+            w.append((v - a[j]) / (a[j + 1] - a[j]))
+        out = 0.0
+        for c in range(1 << len(axes)):
+            flat, weight = 0, 1.0
+            for i in range(len(axes)):
+                b = (c >> i) & 1
+                flat = flat * self.dims[i] + idx[i] + b
+                weight *= w[i] if b else 1 - w[i]
+            if weight > 0:
+                out += weight * values[flat]
+        return out
+
+    def predict(self, x):
+        xs = self._scale(x)
+        gb = self.m["gb"]
+        total = 0.0
+        for t in gb["trees"]:
+            node = 0
+            while t["l"][node] != -1:
+                node = t["l"][node] if xs[t["f"][node]] <= t["t"][node] else t["r"][node]
+            total += t["v"][node]
+        gb_value = gb["init"] + gb["lr"] * total
+        ridge = self.m["ridge"]
+        ridge_value = ridge["intercept"] + sum(c * v for c, v in zip(ridge["coef"], xs))
+        c_rf, c_gb, c_ridge = self.m["stack"]["coef"]
+        return self.m["stack"]["intercept"] + c_rf * self._rf(x) + c_gb * gb_value + c_ridge * ridge_value
+
+
+def load_model():
+    if os.path.exists(FULL_MODEL_PATH):
         try:
-            prediction = fallback_prediction(features)
-            return jsonify({
-                "predicted_elo": float(prediction),
-                "status": "success",
-                "method": "fallback_error"
-            })
-        except:
-            return jsonify({"error": str(e)}), 500
+            model = FullModel(FULL_MODEL_PATH)
+            print(f"Full ML model loaded from {FULL_MODEL_PATH}")
+            return model
+        except Exception as exc:  # noqa: BLE001
+            print(f"Could not load the full model ({exc}), trying the compact one")
+    if os.path.exists(COMPACT_MODEL_PATH):
+        model = CompactModel(COMPACT_MODEL_PATH)
+        print(f"Compact ML model loaded from {COMPACT_MODEL_PATH}")
+        return model
+    print("No model found")
+    return None
 
-@app.route('/api/health', methods=['GET'])
+
+MODEL = load_model()
+
+
+@app.route("/api/predict-elo", methods=["POST"])
+def predict_elo():
+    data = request.get_json(silent=True) or {}
+    features = data.get("features")
+    if not isinstance(features, list) or len(features) != len(FEATURES):
+        return jsonify({"error": f"features must be a list of {len(FEATURES)} numbers: {FEATURES}"}), 400
+    try:
+        x = [float(v) for v in features]
+    except (TypeError, ValueError):
+        return jsonify({"error": "features must be numbers"}), 400
+    if MODEL is None:
+        return jsonify({"error": "model not available"}), 503
+    elo = MODEL.predict(x)
+    return jsonify({"predicted_elo": round(elo, 1), "status": "success", "method": MODEL.method, "features": FEATURES})
+
+
+@app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "healthy",
-        "model_loaded": model_loaded
-    })
+    return jsonify(
+        {"status": "healthy", "model_loaded": MODEL is not None, "method": MODEL.method if MODEL else None, "features": FEATURES}
+    )
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
