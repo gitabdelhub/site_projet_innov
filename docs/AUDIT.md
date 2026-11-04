@@ -42,7 +42,7 @@ Méthode : `npm install`, `tsc --noEmit` (OK, aucune erreur de type), `vite` lan
 | # | Bug | Gravité |
 |---|-----|---------|
 | 4.1 | 6 "puzzles" codés en dur, dont la plupart sont des coups d'ouverture et non des tactiques ; un seul coup attendu, réponse comparée en SAN brute. | Bloquant |
-| 4.2 | Puzzle 4 : la "solution" Nxe5 n'est pas légale dans la position donnée, puzzle 5 idem (le texte dit "développer le Fou" pour Bxf7+). | Majeur |
+| 4.2 | Les solutions sont légales mais pas pédagogiques : puzzle 4 "attaque le Fou" attend Nxe5 (gain de pion douteux), puzzle 5 dit "développe le Fou" et attend Bxf7+ (sacrifice). Énoncés et solutions incohérents. | Majeur |
 | 4.3 | Aucun lien avec l'Elo prédit : la boucle innovante n'existe pas. | Bloquant |
 | 4.4 | Position Trainer et Theme Analyzer : écrans statiques, pas de progression réelle. | Majeur |
 
