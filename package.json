@@ -1,14 +1,17 @@
 {
-  "name": "chess-game",
+  "name": "chess-hub",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --port 3000",
+    "local": "node scripts/start-local.mjs",
+    "api": "python ml_backend/app.py"
   },
   "dependencies": {
+    "@fontsource/outfit": "^5.1.0",
     "@supabase/supabase-js": "^2.39.0",
     "chess.js": "^1.0.0-beta.8",
     "lucide-react": "^0.460.0",
