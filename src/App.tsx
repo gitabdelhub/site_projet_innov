@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
@@ -7,11 +7,10 @@ import { Profile } from './pages/Profile';
 import { Game } from './pages/Game';
 import { Play } from './pages/Play';
 import { Analyse } from './pages/Analyse';
+import { Puzzles } from './pages/Puzzles';
+import { Progress } from './pages/Progress';
 import { I18nProvider } from './i18n';
 import { Coach } from './pages/Coach';
-import { CoachTactics } from './pages/CoachTactics';
-import { CoachPosition } from './pages/CoachPosition';
-import { CoachThemes } from './pages/CoachThemes';
 
 function App() {
   return (
@@ -30,9 +29,11 @@ function App() {
           <Route path="/coach" element={<Coach />} />
           <Route path="/coach/elo" element={<Analyse />} />
           <Route path="/coach/analyse" element={<Analyse />} />
-          <Route path="/coach/tactics" element={<CoachTactics />} />
-          <Route path="/coach/position" element={<CoachPosition />} />
-          <Route path="/coach/themes" element={<CoachThemes />} />
+          <Route path="/coach/tactics" element={<Puzzles />} />
+          <Route path="/coach/puzzles" element={<Puzzles />} />
+          <Route path="/coach/position" element={<Navigate to="/coach/puzzles" replace />} />
+          <Route path="/coach/themes" element={<Navigate to="/coach/puzzles" replace />} />
+          <Route path="/coach/progress" element={<Progress />} />
         </Routes>
       </div>
     </Router>

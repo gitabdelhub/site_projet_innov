@@ -25,6 +25,8 @@ interface BoardProps {
   lastMove?: { from: string; to: string } | null;
   arrows?: Arrow[];
   mark?: SquareMark | null;
+  /** Squares circled in blue (hints). */
+  highlights?: string[];
   className?: string;
 }
 
@@ -40,6 +42,7 @@ export const Board = ({
   lastMove,
   arrows = [],
   mark,
+  highlights = [],
   className = '',
 }: BoardProps) => {
   const { t } = useI18n();
@@ -178,6 +181,9 @@ export const Board = ({
                 {isLast && <div className="absolute inset-0 bg-board-highlight" />}
                 {isSel && <div className="absolute inset-0 bg-board-selected" />}
                 {isCheckedKing && <div className="absolute inset-0 radial-check" />}
+                {highlights.includes(sq) && (
+                  <div className="absolute inset-0 ring-4 ring-inset ring-accent bg-accent/25 animate-pulse" />
+                )}
                 {piece && (
                   <img
                     src={pieceSrc(piece.color, piece.type)}

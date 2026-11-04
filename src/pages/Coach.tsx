@@ -1,98 +1,91 @@
 import { Link } from 'react-router-dom';
+import { FileSearch, Puzzle, TrendingUp, Swords, Brain, ArrowRight, ChevronRight } from 'lucide-react';
+import { latestElo, useProgress } from '../lib/storage';
+import { useI18n } from '../i18n';
 
-export const Coach: React.FC = () => {
-  const coachSections = [
+export const Coach = () => {
+  const { t } = useI18n();
+  const progress = useProgress();
+  const elo = latestElo(progress);
+  const solved = progress.puzzles.filter((p) => p.solved).length;
+
+  const cards = [
+    { to: '/coach/analyse', icon: FileSearch, title: t('coach.analyse'), desc: t('coach.analyseDesc'), tint: 'bg-blue-50 border-blue-200 text-blue-600' },
     {
-      path: '/coach/elo',
-      icon: '📊',
-      title: 'Elo Prediction',
-      description: 'Upload your games or link your Chess.com/Lichess accounts to predict your ELO rating and analyze your playing style.',
-      color: 'from-blue-500/10 to-blue-600/5',
-      borderColor: 'border-blue-500/20'
+      to: elo ? `/coach/puzzles?elo=${elo}` : '/coach/puzzles',
+      icon: Puzzle,
+      title: t('coach.puzzles'),
+      desc: t('coach.puzzlesDesc'),
+      tint: 'bg-rose-50 border-rose-200 text-rose-600',
     },
-    {
-      path: '/coach/tactics',
-      icon: '⚔️',
-      title: 'Tactic Trainer',
-      description: 'Sharpen your tactical vision with interactive puzzles. Find the best moves to improve your pattern recognition.',
-      color: 'from-red-500/10 to-red-600/5',
-      borderColor: 'border-red-500/20'
-    },
-    {
-      path: '/coach/position',
-      icon: '🎯',
-      title: 'Position Trainer',
-      description: 'Master critical positions from different openings and middlegames. Improve your positional understanding.',
-      color: 'from-green-500/10 to-green-600/5',
-      borderColor: 'border-green-500/20'
-    },
-    {
-      path: '/coach/themes',
-      icon: '🧩',
-      title: 'Theme Analyzer',
-      description: 'Focus on specific chess themes to improve your understanding. Each theme contains targeted exercises.',
-      color: 'from-purple-500/10 to-purple-600/5',
-      borderColor: 'border-purple-500/20'
-    }
+    { to: '/coach/progress', icon: TrendingUp, title: t('coach.progress'), desc: t('coach.progressDesc'), tint: 'bg-emerald-50 border-emerald-200 text-emerald-600' },
+  ];
+
+  const loop = [
+    { icon: Swords, label: t('coach.loop1') },
+    { icon: Brain, label: t('coach.loop2') },
+    { icon: Puzzle, label: t('coach.loop3') },
   ];
 
   return (
-    <div className="min-h-screen bg-bg-dark py-8 px-4 font-sans select-none">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-extrabold text-text-primary tracking-tight mb-4">AI Chess Coach</h1>
-          <p className="text-text-secondary text-lg max-w-2xl mx-auto">
-            Improve your chess with personalized training. Choose a training mode below to get started.
-          </p>
-        </div>
+    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl sm:text-5xl font-black text-text-primary mb-3">{t('coach.title')}</h1>
+        <p className="text-text-secondary max-w-2xl mx-auto">{t('coach.subtitle')}</p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {coachSections.map((section) => (
-            <Link
-              key={section.path}
-              to={section.path}
-              className={`group bg-gradient-to-br ${section.color} ${section.borderColor} border-2 rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.02]`}
-            >
-              <div className="flex items-start gap-4">
-                <div className="text-5xl">{section.icon}</div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-text-primary mb-3 group-hover:text-accent transition-colors">
-                    {section.title}
-                  </h3>
-                  <p className="text-text-secondary text-sm leading-relaxed">
-                    {section.description}
-                  </p>
-                </div>
-                <div className="text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <div className="mt-12 bg-bg-card border border-gray-200/80 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-text-primary text-lg mb-4">📈 Your Progress</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Games Analyzed</div>
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-10">
+        {loop.map((s, i) => (
+          <div key={i} className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 bg-bg-card border border-gray-200 rounded-full px-3 sm:px-4 py-2 shadow-sm">
+              <s.icon size={16} className="text-accent" />
+              <span className="text-xs sm:text-sm font-semibold text-text-primary">{s.label}</span>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Puzzles Solved</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Themes Mastered</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-accent mb-1">0</div>
-              <div className="text-xs text-text-secondary">Training Hours</div>
-            </div>
+            {i < loop.length - 1 && <ArrowRight size={16} className="text-text-secondary" />}
           </div>
+        ))}
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 mb-8">
+        {cards.map((c) => (
+          <Link
+            key={c.to}
+            to={c.to}
+            className="group bg-bg-card border border-gray-200/80 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+          >
+            <div className={`w-12 h-12 rounded-xl border flex items-center justify-center mb-4 ${c.tint}`}>
+              <c.icon size={24} />
+            </div>
+            <h2 className="text-lg font-bold text-text-primary mb-1 flex items-center justify-between">
+              {c.title}
+              <ChevronRight size={18} className="text-text-secondary group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+            </h2>
+            <p className="text-sm text-text-secondary leading-relaxed">{c.desc}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-text-primary text-lg flex items-center gap-2">
+            <TrendingUp size={20} className="text-accent" /> {t('coach.yourProgress')}
+          </h3>
+          <Link to="/coach/progress" className="text-sm font-semibold text-accent hover:underline">
+            {t('coach.seeAll')}
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { v: elo ?? '?', l: t('stats.predictedElo') },
+            { v: progress.games.length, l: t('stats.games') },
+            { v: solved, l: t('stats.puzzlesSolved') },
+            { v: progress.puzzleRating || '?', l: t('stats.puzzleRating') },
+          ].map((s) => (
+            <div key={s.l} className="text-center">
+              <p className="text-3xl font-black text-accent">{s.v}</p>
+              <p className="text-xs text-text-secondary">{s.l}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

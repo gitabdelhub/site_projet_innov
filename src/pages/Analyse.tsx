@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FileUp, ClipboardPaste, Sparkles, ArrowLeft } from 'lucide-react';
 import { GameReview } from '../components/analysis/GameReview';
 import { EloPanel } from '../components/analysis/EloPanel';
@@ -27,6 +28,8 @@ export const Analyse = () => {
   const [side, setSide] = useState<Color>('w');
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [params] = useSearchParams();
+  const gameParam = params.get('game');
 
   const load = (pgn: string) => {
     try {
@@ -39,6 +42,16 @@ export const Analyse = () => {
       setError(t('analyse.invalid'));
     }
   };
+
+  // Open a saved game directly (from the progress page).
+  useEffect(() => {
+    const g = gameParam ? progress.games.find((x) => x.id === gameParam) : null;
+    if (g) {
+      setSide(g.playerColor);
+      load(g.pgn);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameParam]);
 
   if (game) {
     const names = { w: game.headers.White ?? t('common.white'), b: game.headers.Black ?? t('common.black') };
