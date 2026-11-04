@@ -36,6 +36,11 @@ const fr = {
   'play.onlineGo': 'Trouver un adversaire',
   'play.onlineSoon': 'Bientôt disponible',
   'play.you': 'Toi',
+  'play.timeControl': 'Cadence',
+  'tc.blitz': 'Blitz',
+  'tc.rapid': 'Rapide',
+  'tc.classical': 'Longue',
+  'tc.unlimited': 'Sans limite',
 
   'game.yourTurn': 'À toi de jouer',
   'game.youInCheck': 'Échec ! À toi de jouer',
@@ -263,6 +268,11 @@ const en: Record<MessageKey, string> = {
   'play.onlineGo': 'Find an opponent',
   'play.onlineSoon': 'Coming soon',
   'play.you': 'You',
+  'play.timeControl': 'Time control',
+  'tc.blitz': 'Blitz',
+  'tc.rapid': 'Rapid',
+  'tc.classical': 'Classical',
+  'tc.unlimited': 'No clock',
 
   'game.yourTurn': 'Your move',
   'game.youInCheck': 'Check! Your move',

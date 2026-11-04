@@ -18,9 +18,26 @@ import { soundEffects } from '../utils/soundEffects';
 
 const CURRENT_KEY = 'chesshub.currentGame.v1';
 
+/** Time control. `initial` in seconds, null = no clock (game lasts until it ends). */
+export interface TimeControl {
+  id: string;
+  initial: number | null;
+  increment: number;
+}
+
+export const TIME_CONTROLS: TimeControl[] = [
+  { id: 'blitz', initial: 3 * 60, increment: 2 },
+  { id: 'rapid', initial: 10 * 60, increment: 0 },
+  { id: 'classical', initial: 30 * 60, increment: 0 },
+  { id: 'unlimited', initial: null, increment: 0 },
+];
+
+export const getTimeControl = (id: string | undefined) => TIME_CONTROLS.find((t) => t.id === id) ?? TIME_CONTROLS[3];
+
 export interface EngineGameSetup {
   playerColor: Color;
   levelId: number;
+  timeControlId: string;
 }
 
 interface StoredGame extends EngineGameSetup {
@@ -29,16 +46,42 @@ interface StoredGame extends EngineGameSetup {
   moves: PlayedMove[];
   over: GameOver | null;
   startedAt: string;
+  /** Remaining time in ms for each side, at the moment `turnStartedAt` was set. */
+  clocks: Record<Color, number> | null;
+  /** Epoch ms when the side to move started thinking; null before the first move. */
+  turnStartedAt: number | null;
 }
 
-const emptyGame = (setup: EngineGameSetup): StoredGame => ({
-  ...setup,
-  id: newId(),
-  startFen: START_FEN,
-  moves: [],
-  over: null,
-  startedAt: new Date().toISOString(),
-});
+const emptyGame = (setup: EngineGameSetup): StoredGame => {
+  const tc = getTimeControl(setup.timeControlId);
+  return {
+    ...setup,
+    id: newId(),
+    startFen: START_FEN,
+    moves: [],
+    over: null,
+    startedAt: new Date().toISOString(),
+    clocks: tc.initial ? { w: tc.initial * 1000, b: tc.initial * 1000 } : null,
+    turnStartedAt: null,
+  };
+};
+
+/** Remaining ms for each side right now. */
+export const remainingTimes = (g: StoredGame, turn: Color, now: number): Record<Color, number> | null => {
+  if (!g.clocks) return null;
+  const spent = g.turnStartedAt && !g.over ? now - g.turnStartedAt : 0;
+  return { ...g.clocks, [turn]: Math.max(0, g.clocks[turn] - spent) } as Record<Color, number>;
+};
+
+/** True if `color` still has enough material to mate (used for a flag fall). */
+const canMate = (chess: Chess, color: Color) => {
+  const pieces = chess
+    .board()
+    .flat()
+    .filter((p) => p && p.color === color && p.type !== 'k');
+  if (pieces.some((p) => p!.type === 'p' || p!.type === 'r' || p!.type === 'q')) return true;
+  return pieces.length >= 2;
+};
 
 const playSound = (move: PlayedMove, chess: Chess, playerColor: Color) => {
   const over = detectGameOver(chess);
@@ -55,9 +98,12 @@ const playSound = (move: PlayedMove, chess: Chess, playerColor: Color) => {
 export const useEngineGame = () => {
   const [game, setGame] = useState<StoredGame | null>(() => {
     const saved = safeGet<StoredGame | null>(CURRENT_KEY, null);
-    return saved && Array.isArray(saved.moves) && !saved.over ? saved : null;
+    return saved && Array.isArray(saved.moves) && !saved.over
+      ? ({ clocks: null, turnStartedAt: null, timeControlId: 'unlimited', ...(saved as Partial<StoredGame>) } as StoredGame)
+      : null;
   });
   const [thinking, setThinking] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const searchToken = useRef(0);
 
   const chess = useMemo(() => {
@@ -88,6 +134,10 @@ export const useEngineGame = () => {
       Black: g.playerColor === 'b' ? 'Player' : `Stockfish ~${lvl.elo}`,
       Result: result.result,
       Termination: result.reason,
+      TimeControl: (() => {
+        const tc = getTimeControl(g.timeControlId);
+        return tc.initial ? `${tc.initial}+${tc.increment}` : '-';
+      })(),
     });
     saveGame({
       id: g.id,
@@ -116,7 +166,14 @@ export const useEngineGame = () => {
         return false;
       }
       const played = toPlayed(mv);
-      let next: StoredGame = { ...game, moves: [...game.moves, played] };
+      const t = Date.now();
+      let clocks = game.clocks;
+      if (clocks) {
+        const spent = game.turnStartedAt ? t - game.turnStartedAt : 0;
+        const inc = getTimeControl(game.timeControlId).increment * 1000;
+        clocks = { ...clocks, [mv.color]: Math.max(0, clocks[mv.color] - spent) + (game.moves.length > 0 ? inc : 0) };
+      }
+      let next: StoredGame = { ...game, moves: [...game.moves, played], clocks, turnStartedAt: t };
       const result = detectGameOver(c);
       if (result) next = finish(next, result);
       playSound(played, c, game.playerColor);
@@ -152,11 +209,16 @@ export const useEngineGame = () => {
         const m = legal[Math.floor(Math.random() * legal.length)];
         uci = `${m.from}${m.to}${m.promotion ?? ''}`;
       } else {
-        const r = await engine.search(positionFen, lvl.search);
+        // Short on time: think less.
+        const left = remainingTimes(game, turn, Date.now())?.[turn];
+        const search = left !== undefined && left < 30000 ? { ...lvl.search, movetime: Math.min(lvl.search.movetime ?? 300, Math.max(50, left / 40)), depth: undefined } : lvl.search;
+        const r = await engine.search(positionFen, search);
         if (r.cancelled) return;
         uci = r.bestmove;
       }
-      const wait = lvl.minDelay - (performance.now() - startedAt);
+      const left = remainingTimes(game, turn, Date.now())?.[turn];
+      const minDelay = left !== undefined && left < 30000 ? 0 : lvl.minDelay;
+      const wait = minDelay - (performance.now() - startedAt);
       if (wait > 0) await new Promise((res) => setTimeout(res, wait));
       if (token !== searchToken.current || !uci) return;
       const { from, to, promotion } = fromUci(uci);
@@ -174,6 +236,29 @@ export const useEngineGame = () => {
     // applyMove changes with `game`; the effect must only re-run when the position changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fen, game?.id, game?.over, game?.playerColor]);
+
+  // Clock: tick while a timed game is running, and end it when a flag falls.
+  const timed = !!game?.clocks && !game.over && !!game.turnStartedAt;
+  useEffect(() => {
+    if (!timed) return;
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [timed]);
+
+  useEffect(() => {
+    if (!game || !timed) return;
+    const left = remainingTimes(game, turn, now);
+    if (!left || left[turn] > 0) return;
+    searchToken.current++;
+    getPlayEngine().cancelAll();
+    setThinking(false);
+    const winner: Color = turn === 'w' ? 'b' : 'w';
+    const result: GameOver = canMate(chess, winner)
+      ? { result: winner === 'w' ? '1-0' : '0-1', reason: 'timeout' }
+      : { result: '1/2-1/2', reason: 'timeout' };
+    setGame(finish({ ...game, clocks: left, turnStartedAt: null }, result));
+    soundEffects.playGameOver(outcomeFor(result.result, game.playerColor) === 'win');
+  }, [now, timed, game, turn, chess, finish]);
 
   const start = useCallback((setup: EngineGameSetup) => {
     searchToken.current++;
@@ -197,17 +282,20 @@ export const useEngineGame = () => {
     if (moves.length === 0 && game.playerColor === 'b' && game.moves.length > 0) {
       moves.push(game.moves[0]);
     }
-    setGame({ ...game, moves });
-  }, [game]);
+    // Takeback: the clocks keep their current values, the player's clock restarts now.
+    const left = remainingTimes(game, turn, Date.now());
+    setGame({ ...game, moves, clocks: left, turnStartedAt: moves.length > 0 ? Date.now() : null });
+  }, [game, turn]);
 
   const resign = useCallback(() => {
     if (!game || game.over) return;
     searchToken.current++;
     getPlayEngine().cancelAll();
     setThinking(false);
-    setGame(finish(game, { result: game.playerColor === 'w' ? '0-1' : '1-0', reason: 'resign' }));
+    const left = remainingTimes(game, turn, Date.now());
+    setGame(finish({ ...game, clocks: left, turnStartedAt: null }, { result: game.playerColor === 'w' ? '0-1' : '1-0', reason: 'resign' }));
     soundEffects.playGameOver(false);
-  }, [game, finish]);
+  }, [game, turn, finish]);
 
   const quit = useCallback(() => {
     searchToken.current++;
@@ -235,5 +323,7 @@ export const useEngineGame = () => {
     resign,
     quit,
     inCheck: chess.inCheck(),
+    clocks: game ? remainingTimes(game, turn, now) : null,
+    timeControl: getTimeControl(game?.timeControlId),
   };
 };

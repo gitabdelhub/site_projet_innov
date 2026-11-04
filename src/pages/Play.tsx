@@ -15,13 +15,15 @@ import {
   Gauge,
   Dices,
   Users,
+  Timer,
+  Infinity as InfinityIcon,
 } from 'lucide-react';
 import { Board } from '../components/board/Board';
 import { MoveList } from '../components/board/MoveList';
 import { GameReview } from '../components/analysis/GameReview';
 import { EloPanel } from '../components/analysis/EloPanel';
 import type { GameAnalysis } from '../engine/analysis';
-import { useEngineGame } from '../hooks/useEngineGame';
+import { useEngineGame, TIME_CONTROLS } from '../hooks/useEngineGame';
 import { ENGINE_LEVELS, levelForElo } from '../engine/levels';
 import { materialFromFen, outcomeFor, START_FEN, type Color } from '../lib/chessGame';
 import { latestElo, useProgress } from '../lib/storage';
@@ -42,6 +44,14 @@ const LEVEL_NAME: Record<number, MessageKey> = {
   9: 'level.9',
 };
 
+const formatClock = (ms: number) => {
+  const total = Math.max(0, ms);
+  const m = Math.floor(total / 60000);
+  const sec = Math.floor((total % 60000) / 1000);
+  if (total < 10000) return `0:0${sec}.${Math.floor((total % 1000) / 100)}`;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+};
+
 const Captured = ({ pieces, color, diff }: { pieces: string[]; color: Color; diff: number }) => (
   <div className="flex items-center gap-0.5 h-4">
     {pieces.map((p, i) => (
@@ -51,13 +61,14 @@ const Captured = ({ pieces, color, diff }: { pieces: string[]; color: Color; dif
   </div>
 );
 
-const Setup = ({ onStart }: { onStart: (c: Color, level: number) => void }) => {
+const Setup = ({ onStart }: { onStart: (c: Color, level: number, timeControlId: string) => void }) => {
   const { t } = useI18n();
   const progress = useProgress();
   const elo = latestElo(progress);
   const recommended = elo ? levelForElo(elo).id : 3;
   const [level, setLevel] = useState(recommended);
   const [color, setColor] = useState<Color | 'random'>('w');
+  const [tc, setTc] = useState('rapid');
   const online = isSupabaseConfigured();
 
   return (
@@ -106,7 +117,7 @@ const Setup = ({ onStart }: { onStart: (c: Color, level: number) => void }) => {
           {elo && <p className="text-xs text-text-secondary mb-4">{t('play.recommendedHint', { elo })}</p>}
 
           <p className="text-xs font-bold uppercase tracking-wide text-text-secondary mt-4 mb-2">{t('play.color')}</p>
-          <div className="grid grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {(['w', 'random', 'b'] as const).map((c) => (
               <button
                 key={c}
@@ -127,8 +138,28 @@ const Setup = ({ onStart }: { onStart: (c: Color, level: number) => void }) => {
             ))}
           </div>
 
+          <p className="text-xs font-bold uppercase tracking-wide text-text-secondary mb-2 flex items-center gap-1.5">
+            <Timer size={14} /> {t('play.timeControl')}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+            {TIME_CONTROLS.map((x) => (
+              <button
+                key={x.id}
+                onClick={() => setTc(x.id)}
+                className={`rounded-xl border px-2 py-2.5 text-center transition-all ${
+                  tc === x.id ? 'border-accent bg-accent/10 ring-1 ring-accent' : 'border-gray-200 hover:border-accent/50 bg-bg-dark'
+                }`}
+              >
+                <span className="block text-sm font-bold text-text-primary">{t(`tc.${x.id}` as MessageKey)}</span>
+                <span className="flex items-center justify-center text-[11px] text-text-secondary font-mono h-4">
+                  {x.initial ? `${x.initial / 60} min${x.increment ? ` + ${x.increment} s` : ''}` : <InfinityIcon size={14} />}
+                </span>
+              </button>
+            ))}
+          </div>
+
           <button
-            onClick={() => onStart(color === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : color, level)}
+            onClick={() => onStart(color === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : color, level, tc)}
             className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3.5 rounded-xl shadow-sm shadow-accent/25 transition-colors"
           >
             {t('play.start')}
@@ -169,10 +200,10 @@ export const Play = () => {
   if (!g.game) {
     return (
       <Setup
-        onStart={(c, level) => {
+        onStart={(c, level, timeControlId) => {
           setFlipped(false);
           setReviewing(false);
-          g.start({ playerColor: c, levelId: level });
+          g.start({ playerColor: c, levelId: level, timeControlId });
         }}
       />
     );
@@ -207,6 +238,19 @@ export const Play = () => {
           <Captured pieces={captured} color={c === 'w' ? 'b' : 'w'} diff={diff} />
         </div>
         {who === 'engine' && g.thinking && <Loader2 size={18} className="animate-spin text-accent" />}
+        {g.clocks && (
+          <span
+            className={`font-mono font-bold text-lg sm:text-xl px-3 py-1 rounded-lg tabular-nums ${
+              g.clocks[c] < 20000 && !over
+                ? 'bg-red-100 text-danger'
+                : active
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-darker text-text-primary'
+            }`}
+          >
+            {formatClock(g.clocks[c])}
+          </span>
+        )}
       </div>
     );
   };
