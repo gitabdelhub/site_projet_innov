@@ -34,12 +34,12 @@ class ErrorBoundary extends React.Component<
           padding: '2rem',
           textAlign: 'center',
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>♞</div>
+          <img src="/chess-icon.svg" alt="" style={{ width: 56, height: 56, marginBottom: '1rem' }} />
           <h1 style={{ color: '#202020', fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-            Something went wrong
+            Une erreur est survenue / Something went wrong
           </h1>
           <p style={{ color: '#6b7280', marginBottom: '1.5rem', maxWidth: '400px' }}>
-            The app encountered an error. Check the browser console for details.
+            Recharge la page. Reload the page.
           </p>
           <pre style={{
             background: '#f3f2ee',
@@ -68,7 +68,7 @@ class ErrorBoundary extends React.Component<
               cursor: 'pointer',
             }}
           >
-            Reload Page
+            Recharger / Reload
           </button>
         </div>
       );
