@@ -294,6 +294,7 @@ export const Play = () => {
               color={player}
               source="game"
               gameId={game.id}
+              initialSec={g.timeControl.initial ?? undefined}
             />
           }
         />

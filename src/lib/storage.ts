@@ -5,6 +5,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import type { Color, EndReason, GameResult } from './chessGame';
+import type { GameStats } from '../elo/features';
 
 const KEY = 'chesshub.progress.v1';
 
@@ -20,6 +21,8 @@ export interface SavedGame {
   moves: number;
   predictedElo?: number;
   accuracy?: number;
+  /** Player statistics of this game, input of the Elo model profile. */
+  stats?: GameStats;
 }
 
 export interface EloPrediction {
@@ -107,6 +110,10 @@ export const addPrediction = (e: EloPrediction) =>
   updateProgress((p) => ({ ...p, predictions: [e, ...p.predictions].slice(0, 50) }));
 
 /** Last predicted Elo, or null if the player has never been evaluated. */
+/** Statistics of the player's saved games, newest first (the profile used by the Elo model). */
+export const playerHistory = (p: Progress, excludeId?: string): GameStats[] =>
+  p.games.filter((g) => g.id !== excludeId && g.stats).map((g) => g.stats as GameStats);
+
 export const latestElo = (p: Progress): number | null => p.predictions[0]?.elo ?? null;
 
 export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;

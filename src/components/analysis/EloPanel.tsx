@@ -1,27 +1,51 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Brain, Puzzle, Swords, Loader2, Info } from 'lucide-react';
-import type { GameAnalysis } from '../../engine/analysis';
-import { predictElo, type EloPrediction } from '../../elo/predict';
-import type { Color, PlayedMove } from '../../lib/chessGame';
-import { addPrediction, patchGame } from '../../lib/storage';
-import { useI18n } from '../../i18n';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Brain, Puzzle, Swords, Loader2, Info } from "lucide-react";
+import type { GameAnalysis } from "../../engine/analysis";
+import { predictElo, type EloPrediction } from "../../elo/predict";
+import type { Color, PlayedMove } from "../../lib/chessGame";
+import {
+  addPrediction,
+  getProgress,
+  patchGame,
+  playerHistory,
+} from "../../lib/storage";
+import { MIN_GAMES } from "../../elo/features";
+import { useI18n } from "../../i18n";
 
 interface EloPanelProps {
   startFen: string;
   moves: PlayedMove[];
   analysis: GameAnalysis | null;
   color: Color;
-  source: 'game' | 'pgn';
+  source: "game" | "pgn";
   /** Id of the saved game to attach the prediction to. */
   gameId?: string;
   headers?: Record<string, string>;
   name?: string;
+  /** Starting clock in seconds (games played on the site). */
+  initialSec?: number;
 }
 
 const saved = new Set<string>();
 
-export const EloPanel = ({ startFen, moves, analysis, color, source, gameId, headers, name }: EloPanelProps) => {
+const RELIABILITY_STYLE = {
+  low: "bg-amber-100 text-amber-800",
+  medium: "bg-sky-100 text-sky-800",
+  good: "bg-emerald-100 text-emerald-800",
+} as const;
+
+export const EloPanel = ({
+  startFen,
+  moves,
+  analysis,
+  color,
+  source,
+  gameId,
+  headers,
+  name,
+  initialSec,
+}: EloPanelProps) => {
   const { t } = useI18n();
   const [pred, setPred] = useState<EloPrediction | null>(null);
 
@@ -29,16 +53,36 @@ export const EloPanel = ({ startFen, moves, analysis, color, source, gameId, hea
     if (!analysis) return;
     let alive = true;
     setPred(null);
-    predictElo({ startFen, moves, analysis, color, headers }).then((p) => {
+    // A game played on the site joins the player's profile: their previous games count too.
+    const history =
+      source === "game" ? playerHistory(getProgress(), gameId) : [];
+    predictElo({
+      startFen,
+      moves,
+      analysis,
+      color,
+      headers,
+      initialSec,
+      history,
+    }).then((p) => {
       if (!alive) return;
       setPred(p);
-      const key = `${color}|${moves.map((m) => m.uci).join(' ')}`;
+      const key = `${color}|${moves.map((m) => m.uci).join(" ")}`;
       if (!saved.has(key)) {
         saved.add(key);
-        addPrediction({ date: new Date().toISOString(), elo: p.elo, source, method: p.method });
+        addPrediction({
+          date: new Date().toISOString(),
+          elo: p.elo,
+          source,
+          method: p.method,
+        });
         if (gameId) {
-          const s = color === 'w' ? analysis.white : analysis.black;
-          patchGame(gameId, { predictedElo: p.elo, accuracy: s.accuracy });
+          const s = color === "w" ? analysis.white : analysis.black;
+          patchGame(gameId, {
+            predictedElo: p.elo,
+            accuracy: s.accuracy,
+            stats: p.stats,
+          });
         }
       }
     });
@@ -57,15 +101,19 @@ export const EloPanel = ({ startFen, moves, analysis, color, source, gameId, hea
           <Brain size={18} />
         </div>
         <p className="text-sm font-bold text-text-primary">
-          {pred?.method === 'estimate' ? t('elo.titleEstimate') : t('elo.title')}
-          {name ? <span className="font-normal text-text-secondary"> · {name}</span> : null}
+          {pred?.method === "estimate"
+            ? t("elo.titleEstimate")
+            : t("elo.title")}
+          {name ? (
+            <span className="font-normal text-text-secondary"> · {name}</span>
+          ) : null}
         </p>
       </div>
 
       {!pred ? (
         <p className="flex items-center gap-2 text-sm text-text-secondary py-3">
           <Loader2 size={16} className="animate-spin" />
-          {analysis ? t('elo.predicting') : t('elo.waitAnalysis')}
+          {analysis ? t("elo.predicting") : t("elo.waitAnalysis")}
         </p>
       ) : (
         <>
@@ -73,23 +121,42 @@ export const EloPanel = ({ startFen, moves, analysis, color, source, gameId, hea
             <span className="text-4xl font-black text-accent">{pred.elo}</span>
             <span className="text-sm text-text-secondary">± {pred.margin}</span>
           </div>
-          <p className="text-[11px] text-text-secondary flex items-center gap-1 mt-0.5 mb-3">
+          {pred.method !== "estimate" && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <span className="text-[11px] font-semibold text-text-primary bg-bg-card border border-gray-200 rounded-full px-2 py-0.5">
+                {t(pred.nGames > 1 ? "elo.profileMany" : "elo.profileOne", {
+                  n: pred.nGames,
+                })}
+              </span>
+              <span
+                className={`text-[11px] font-semibold rounded-full px-2 py-0.5 ${RELIABILITY_STYLE[pred.reliability]}`}
+              >
+                {t(`elo.reliability.${pred.reliability}`)}
+              </span>
+            </div>
+          )}
+          {pred.method !== "estimate" && pred.nGames < MIN_GAMES && (
+            <p className="text-[11px] text-text-secondary mt-1.5">
+              {t("elo.moreGames", { n: MIN_GAMES - pred.nGames })}
+            </p>
+          )}
+          <p className="text-[11px] text-text-secondary flex items-center gap-1 mt-1.5 mb-3">
             <Info size={12} />
             {t(`elo.method.${pred.method}`)}
-            {tooShort && ` · ${t('elo.shortGame')}`}
+            {tooShort && ` · ${t("elo.shortGame")}`}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <Link
               to={`/coach/puzzles?elo=${pred.elo}`}
               className="flex items-center justify-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-bold py-2.5 rounded-lg"
             >
-              <Puzzle size={16} /> {t('elo.trainCta')}
+              <Puzzle size={16} /> {t("elo.trainCta")}
             </Link>
             <Link
               to="/game"
               className="flex items-center justify-center gap-1.5 bg-bg-card border border-gray-200 hover:bg-bg-darker text-text-primary text-sm font-semibold py-2.5 rounded-lg"
             >
-              <Swords size={16} /> {t('elo.playCta')}
+              <Swords size={16} /> {t("elo.playCta")}
             </Link>
           </div>
         </>
