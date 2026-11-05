@@ -30,6 +30,10 @@ export interface PlayedMove {
   captured?: string;
   promotion?: string;
   fenAfter: string;
+  /** Time spent on this move, in ms (games played on the site, or PGN with %clk). */
+  spentMs?: number;
+  /** Clock of the mover after this move, in ms. */
+  clockMs?: number;
 }
 
 export const toUci = (m: { from: string; to: string; promotion?: string }) =>
@@ -95,8 +99,25 @@ export const buildPgn = (startFen: string, moves: PlayedMove[], headers: PgnHead
     chess.setHeader('SetUp', '1');
     chess.setHeader('FEN', startFen);
   }
-  for (const m of moves) chess.move(fromUci(m.uci));
+  for (const m of moves) {
+    chess.move(fromUci(m.uci));
+    if (m.clockMs !== undefined) chess.setComment(`[%clk ${formatClk(m.clockMs)}]`);
+  }
   return chess.pgn();
+};
+
+const formatClk = (ms: number) => {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+};
+
+const parseClk = (comment: string | undefined): number | undefined => {
+  const m = comment?.match(/\[%clk\s+(\d+):(\d{1,2}):(\d{1,2}(?:\.\d+)?)\]/);
+  if (!m) return undefined;
+  return (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) * 1000;
 };
 
 export interface ParsedPgn {
@@ -111,8 +132,22 @@ export const parsePgn = (pgn: string): ParsedPgn => {
   chess.loadPgn(pgn.trim());
   const headers = chess.getHeaders() as PgnHeaders;
   const startFen = headers.FEN ?? START_FEN;
-  const moves = chess.history({ verbose: true }).map(toPlayed);
+  const comments = new Map(chess.getComments().map((c) => [c.fen, c.comment]));
+  const moves = chess.history({ verbose: true }).map((m) => {
+    const played = toPlayed(m);
+    const clk = parseClk(comments.get(m.after));
+    if (clk !== undefined) played.clockMs = clk;
+    return played;
+  });
   if (moves.length === 0) throw new Error('empty');
+  // Time spent per move from consecutive clocks of the same side (+ increment if known).
+  const inc = Number((headers.TimeControl ?? '').split('+')[1] ?? 0) * 1000 || 0;
+  const lastClock: Record<string, number | undefined> = {};
+  for (const m of moves) {
+    const prev = lastClock[m.color];
+    if (m.clockMs !== undefined && prev !== undefined) m.spentMs = Math.max(0, prev - m.clockMs + inc);
+    lastClock[m.color] = m.clockMs;
+  }
   return { startFen, moves, headers };
 };
 
@@ -139,4 +174,13 @@ export const materialFromFen = (fen: string) => {
     capturedByBlack: lost('w'),
     balance: score('w') - score('b'),
   };
+};
+
+/** Splits a PGN file that contains several games (Lichess / Chess.com exports). */
+export const splitPgnGames = (text: string): string[] => {
+  const normalized = text.replace(/\r\n?/g, '\n').trim();
+  if (!normalized) return [];
+  // A new game starts at a header line that follows a blank line (or the start of the file).
+  const parts = normalized.split(/\n\s*\n(?=\[Event\s)/);
+  return parts.map((p) => p.trim()).filter((p) => p.length > 0);
 };

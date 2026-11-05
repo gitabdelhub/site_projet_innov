@@ -98,3 +98,51 @@ export const browserModel = (): Promise<BrowserModel | null> => {
     .catch(() => null);
   return loading;
 };
+
+/* ------------------------------------------------------------------ */
+/* LightGBM model (modele_elo.joblib), exported exactly by            */
+/* scripts/export_lgbm_model.py. Input: raw features in the order of  */
+/* `features`; they are standardised with the stored scaler first.    */
+/* ------------------------------------------------------------------ */
+
+interface LgbmTree {
+  f: number[];
+  t: number[];
+  l: number[];
+  r: number[];
+  v: number[];
+  /** 1 if a missing value goes left. */
+  d: number[];
+}
+
+export interface LgbmModel {
+  type: 'lgbm';
+  features: string[];
+  scaler: { mean: number[]; scale: number[] };
+  trees: LgbmTree[];
+  meta: { min_games: number; elo_range: [number, number]; cv_mae: number };
+}
+
+export const evaluateLgbm = (m: LgbmModel, raw: number[]): number => {
+  const x = raw.map((v, i) => (Number.isFinite(v) ? (v - m.scaler.mean[i]) / m.scaler.scale[i] : NaN));
+  let total = 0;
+  for (const t of m.trees) {
+    let i = 0;
+    while (t.l[i] !== -1) {
+      const v = x[t.f[i]];
+      const left = Number.isNaN(v) ? t.d[i] === 1 : v <= t.t[i];
+      i = left ? t.l[i] : t.r[i];
+    }
+    total += t.v[i];
+  }
+  return total;
+};
+
+let lgbmLoading: Promise<LgbmModel | null> | null = null;
+
+export const loadLgbmModel = (): Promise<LgbmModel | null> => {
+  lgbmLoading ??= fetch('/models/elo_lgbm.json')
+    .then((r) => (r.ok ? (r.json() as Promise<LgbmModel>) : null))
+    .catch(() => null);
+  return lgbmLoading;
+};

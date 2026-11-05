@@ -173,6 +173,8 @@ export const useEngineGame = () => {
         const inc = getTimeControl(game.timeControlId).increment * 1000;
         clocks = { ...clocks, [mv.color]: Math.max(0, clocks[mv.color] - spent) + (game.moves.length > 0 ? inc : 0) };
       }
+      if (game.turnStartedAt) played.spentMs = t - game.turnStartedAt;
+      if (clocks) played.clockMs = clocks[mv.color];
       let next: StoredGame = { ...game, moves: [...game.moves, played], clocks, turnStartedAt: t };
       const result = detectGameOver(c);
       if (result) next = finish(next, result);
