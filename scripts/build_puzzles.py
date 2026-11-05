@@ -4,6 +4,7 @@ open Lichess puzzle database (CC0): https://database.lichess.org/#puzzles
 
 Usage:
     python scripts/build_puzzles.py lichess_db_puzzle.csv.zst public/puzzles
+    zstd -dc lichess_db_puzzle.csv.zst | python scripts/build_puzzles.py - public/puzzles
 
 The CSV columns are:
 PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags
@@ -26,6 +27,9 @@ random.seed(42)
 
 
 def open_csv(path: str):
+    if path == "-":
+        # Already decompressed on stdin (no zstandard module needed).
+        return io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
     if path.endswith(".zst"):
         import zstandard  # pip install zstandard
 

@@ -1,0 +1,112 @@
+{
+ "source": "Lichess puzzle database (CC0)",
+ "fields": [
+  "id",
+  "fen",
+  "moves",
+  "rating",
+  "themes"
+ ],
+ "bands": [
+  {
+   "band": 400,
+   "count": 300
+  },
+  {
+   "band": 500,
+   "count": 300
+  },
+  {
+   "band": 600,
+   "count": 300
+  },
+  {
+   "band": 700,
+   "count": 300
+  },
+  {
+   "band": 800,
+   "count": 300
+  },
+  {
+   "band": 900,
+   "count": 300
+  },
+  {
+   "band": 1000,
+   "count": 300
+  },
+  {
+   "band": 1100,
+   "count": 300
+  },
+  {
+   "band": 1200,
+   "count": 300
+  },
+  {
+   "band": 1300,
+   "count": 300
+  },
+  {
+   "band": 1400,
+   "count": 300
+  },
+  {
+   "band": 1500,
+   "count": 300
+  },
+  {
+   "band": 1600,
+   "count": 300
+  },
+  {
+   "band": 1700,
+   "count": 300
+  },
+  {
+   "band": 1800,
+   "count": 300
+  },
+  {
+   "band": 1900,
+   "count": 300
+  },
+  {
+   "band": 2000,
+   "count": 300
+  },
+  {
+   "band": 2100,
+   "count": 300
+  },
+  {
+   "band": 2200,
+   "count": 300
+  },
+  {
+   "band": 2300,
+   "count": 300
+  },
+  {
+   "band": 2400,
+   "count": 300
+  },
+  {
+   "band": 2500,
+   "count": 300
+  },
+  {
+   "band": 2600,
+   "count": 300
+  },
+  {
+   "band": 2700,
+   "count": 300
+  },
+  {
+   "band": 2800,
+   "count": 300
+  }
+ ]
+}
