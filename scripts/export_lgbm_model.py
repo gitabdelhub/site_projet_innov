@@ -1,6 +1,10 @@
 """
 Exports our LightGBM Elo model (modele_elo.joblib) to a compact JSON file that the
-browser and the Flask API evaluate exactly (same trees, same scaler).
+browser and the Flask API evaluate exactly (same trees).
+
+Important: the trees split on RAW feature values. The StandardScaler stored in the
+.joblib is only meant for a linear variant (is_linear is False), so it is not applied.
+Its mean is exported anyway: it is used to fill a missing value (training mean).
 
 Usage:
     pip install lightgbm scikit-learn joblib
@@ -55,9 +59,9 @@ def main(src, dst):
     with open(dst, "w", encoding="utf-8") as fh:
         json.dump(out, fh, separators=(",", ":"))
 
-    # Self check against LightGBM on random scaled inputs.
+    # Self check against LightGBM on random raw inputs around the training population.
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(200, len(bundle["features"])))
+    X = scaler.mean_ + rng.normal(size=(200, len(bundle["features"]))) * scaler.scale_
     expected = model.predict(X)
 
     def predict(row):
