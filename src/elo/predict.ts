@@ -10,8 +10,8 @@
  *  2. the Flask API (VITE_API_URL), same model on the server
  *  3. a local estimate from the Stockfish analysis, clearly labelled as such
  */
-import type { GameAnalysis } from "../engine/analysis";
-import type { Color, PlayedMove } from "../lib/chessGame";
+import type { GameAnalysis } from '../engine/analysis';
+import type { Color, PlayedMove } from '../lib/chessGame';
 import {
   buildProfile,
   computeGameStats,
@@ -20,10 +20,10 @@ import {
   reliabilityOf,
   type GameStats,
   type Reliability,
-} from "./features";
-import { evaluateLgbm, loadLgbmModel } from "./model";
+} from './features';
+import { evaluateLgbm, loadLgbmModel } from './model';
 
-export type PredictionMethod = "model-browser" | "model-api" | "estimate";
+export type PredictionMethod = 'model-browser' | 'model-api' | 'estimate';
 
 export interface EloPrediction {
   elo: number;
@@ -49,9 +49,7 @@ export interface PredictInput {
   history?: GameStats[];
 }
 
-export const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ??
-  "";
+export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 
 const clampElo = (x: number) => Math.round(Math.max(400, Math.min(2800, x)));
 
@@ -59,11 +57,8 @@ const clampElo = (x: number) => Math.round(Math.max(400, Math.min(2800, x)));
  * Fallback estimate from accuracy and average centipawn loss.
  * Simple monotonic curve: it is NOT our model and is labelled "estimate" in the UI.
  */
-export const estimateFromAnalysis = (
-  analysis: GameAnalysis,
-  color: Color,
-): number => {
-  const s = color === "w" ? analysis.white : analysis.black;
+export const estimateFromAnalysis = (analysis: GameAnalysis, color: Color): number => {
+  const s = color === 'w' ? analysis.white : analysis.black;
   if (s.moves === 0) return 1200;
   const fromAcpl = 3000 * Math.exp(-0.0105 * Math.max(5, s.acpl)) + 300;
   const fromAccuracy = 400 + Math.max(0, s.accuracy - 40) * 38;
@@ -81,26 +76,23 @@ const fetchWithTimeout = async (url: string, init: RequestInit, ms: number) => {
 };
 
 /** Runs the model on a profile: browser first, then the API. Null if both fail. */
-const runModel = async (
-  features: number[],
-): Promise<{ elo: number; method: PredictionMethod } | null> => {
+const runModel = async (features: number[]): Promise<{ elo: number; method: PredictionMethod } | null> => {
   try {
     const model = await loadLgbmModel();
     if (model) {
       const elo = evaluateLgbm(model, features);
-      if (Number.isFinite(elo))
-        return { elo: clampElo(elo), method: "model-browser" };
+      if (Number.isFinite(elo)) return { elo: clampElo(elo), method: 'model-browser' };
     }
   } catch (e) {
-    console.warn("Browser model failed, trying the API", e);
+    console.warn('Browser model failed, trying the API', e);
   }
   if (API_URL) {
     try {
       const res = await fetchWithTimeout(
         `${API_URL}/api/predict-elo`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           // NaN is not valid JSON: missing values are sent as null.
           body: JSON.stringify({
             features: features.map((v) => (Number.isFinite(v) ? v : null)),
@@ -110,11 +102,8 @@ const runModel = async (
       );
       if (res.ok) {
         const data = await res.json();
-        if (
-          String(data.method).startsWith("ml_model") &&
-          Number.isFinite(data.predicted_elo)
-        ) {
-          return { elo: clampElo(data.predicted_elo), method: "model-api" };
+        if (String(data.method).startsWith('ml_model') && Number.isFinite(data.predicted_elo)) {
+          return { elo: clampElo(data.predicted_elo), method: 'model-api' };
         }
       }
     } catch {
@@ -125,9 +114,7 @@ const runModel = async (
 };
 
 /** Prediction from the statistics of several games of the same player. */
-export const predictFromStats = async (
-  games: GameStats[],
-): Promise<EloPrediction | null> => {
+export const predictFromStats = async (games: GameStats[]): Promise<EloPrediction | null> => {
   if (games.length === 0) return null;
   const res = await runModel(buildProfile(games));
   if (!res) return null;
@@ -140,12 +127,7 @@ export const predictFromStats = async (
 };
 
 /** Statistics of one analysed game for one player. */
-export const statsOfGame = (
-  input: Pick<
-    PredictInput,
-    "analysis" | "moves" | "color" | "headers" | "initialSec"
-  >,
-) =>
+export const statsOfGame = (input: Pick<PredictInput, 'analysis' | 'moves' | 'color' | 'headers' | 'initialSec'>) =>
   computeGameStats({
     analysis: input.analysis,
     moves: input.moves,
@@ -154,9 +136,7 @@ export const statsOfGame = (
   });
 
 /** Prediction after a game: this game plus the player's previous games (if given). */
-export const predictElo = async (
-  input: PredictInput,
-): Promise<EloPrediction> => {
+export const predictElo = async (input: PredictInput): Promise<EloPrediction> => {
   const stats = statsOfGame(input) ?? undefined;
   if (stats) {
     const games = [stats, ...(input.history ?? [])].slice(0, 50);
@@ -165,10 +145,10 @@ export const predictElo = async (
   }
   return {
     elo: estimateFromAnalysis(input.analysis, input.color),
-    method: "estimate",
+    method: 'estimate',
     margin: 300,
     nGames: 1,
-    reliability: "low",
+    reliability: 'low',
     stats,
   };
 };

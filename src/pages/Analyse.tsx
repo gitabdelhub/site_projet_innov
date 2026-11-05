@@ -1,18 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { FileUp, ClipboardPaste, Sparkles, ArrowLeft } from "lucide-react";
-import { GameReview } from "../components/analysis/GameReview";
-import { EloPanel } from "../components/analysis/EloPanel";
-import { ProfileBatch } from "../components/analysis/ProfileBatch";
-import type { GameAnalysis } from "../engine/analysis";
-import {
-  parsePgn,
-  splitPgnGames,
-  type Color,
-  type ParsedPgn,
-} from "../lib/chessGame";
-import { useProgress } from "../lib/storage";
-import { useI18n } from "../i18n";
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { FileUp, ClipboardPaste, Sparkles, ArrowLeft } from 'lucide-react';
+import { GameReview } from '../components/analysis/GameReview';
+import { EloPanel } from '../components/analysis/EloPanel';
+import { ProfileBatch } from '../components/analysis/ProfileBatch';
+import type { GameAnalysis } from '../engine/analysis';
+import { parsePgn, splitPgnGames, type Color, type ParsedPgn } from '../lib/chessGame';
+import { useProgress } from '../lib/storage';
+import { useI18n } from '../i18n';
 
 const SAMPLE_PGN = `[Event "Paris Opera"]
 [Site "Paris"]
@@ -28,16 +23,16 @@ const SAMPLE_PGN = `[Event "Paris Opera"]
 export const Analyse = () => {
   const { t } = useI18n();
   const progress = useProgress();
-  const [text, setText] = useState("");
+  const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [game, setGame] = useState<ParsedPgn | null>(null);
-  const [side, setSide] = useState<Color>("w");
+  const [side, setSide] = useState<Color>('w');
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   /** Several games of the same player: Elo profile mode. */
   const [batch, setBatch] = useState<ParsedPgn[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [params] = useSearchParams();
-  const gameParam = params.get("game");
+  const gameParam = params.get('game');
 
   const load = (pgn: string) => {
     const parts = splitPgnGames(pgn);
@@ -64,7 +59,7 @@ export const Analyse = () => {
       setGame(parsed);
       window.scrollTo({ top: 0 });
     } catch {
-      setError(t("analyse.invalid"));
+      setError(t('analyse.invalid'));
     }
   };
 
@@ -80,19 +75,17 @@ export const Analyse = () => {
 
   const renderReview = (game: ParsedPgn) => {
     const names = {
-      w: game.headers.White ?? t("common.white"),
-      b: game.headers.Black ?? t("common.black"),
+      w: game.headers.White ?? t('common.white'),
+      b: game.headers.Black ?? t('common.black'),
     };
     return (
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-black text-text-primary">
-              {t("analyse.reviewTitle")}
-            </h1>
+            <h1 className="text-2xl font-black text-text-primary">{t('analyse.reviewTitle')}</h1>
             <p className="text-sm text-text-secondary">
               {names.w} vs {names.b}
-              {game.headers.Result ? ` · ${game.headers.Result}` : ""}
+              {game.headers.Result ? ` · ${game.headers.Result}` : ''}
             </p>
           </div>
           <button
@@ -102,8 +95,7 @@ export const Analyse = () => {
             }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-bg-card text-sm font-semibold hover:bg-bg-darker"
           >
-            <ArrowLeft size={16} />{" "}
-            {batch ? t("batch.back") : t("analyse.another")}
+            <ArrowLeft size={16} /> {batch ? t('batch.back') : t('analyse.another')}
           </button>
         </div>
         <GameReview
@@ -117,17 +109,13 @@ export const Analyse = () => {
           aside={
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-text-secondary font-semibold">
-                  {t("analyse.whichSide")}
-                </span>
-                {(["w", "b"] as const).map((c) => (
+                <span className="text-text-secondary font-semibold">{t('analyse.whichSide')}</span>
+                {(['w', 'b'] as const).map((c) => (
                   <button
                     key={c}
                     onClick={() => setSide(c)}
                     className={`px-3 py-1 rounded-full border font-semibold ${
-                      side === c
-                        ? "bg-accent text-white border-accent"
-                        : "border-gray-200 text-text-primary bg-bg-card"
+                      side === c ? 'bg-accent text-white border-accent' : 'border-gray-200 text-text-primary bg-bg-card'
                     }`}
                   >
                     {names[c]}
@@ -156,21 +144,17 @@ export const Analyse = () => {
     return (
       <>
         {game && renderReview(game)}
-        <div className={`max-w-6xl mx-auto px-4 py-6 ${game ? "hidden" : ""}`}>
+        <div className={`max-w-6xl mx-auto px-4 py-6 ${game ? 'hidden' : ''}`}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
-              <h1 className="text-2xl font-black text-text-primary">
-                {t("batch.title")}
-              </h1>
-              <p className="text-sm text-text-secondary">
-                {t("batch.subtitle")}
-              </p>
+              <h1 className="text-2xl font-black text-text-primary">{t('batch.title')}</h1>
+              <p className="text-sm text-text-secondary">{t('batch.subtitle')}</p>
             </div>
             <button
               onClick={() => setBatch(null)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-bg-card text-sm font-semibold hover:bg-bg-darker"
             >
-              <ArrowLeft size={16} /> {t("analyse.another")}
+              <ArrowLeft size={16} /> {t('analyse.another')}
             </button>
           </div>
           <ProfileBatch
@@ -192,18 +176,13 @@ export const Analyse = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
       <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-black text-text-primary mb-2">
-          {t("analyse.title")}
-        </h1>
-        <p className="text-text-secondary">{t("analyse.subtitle")}</p>
+        <h1 className="text-3xl sm:text-4xl font-black text-text-primary mb-2">{t('analyse.title')}</h1>
+        <p className="text-text-secondary">{t('analyse.subtitle')}</p>
       </div>
 
       <div className="bg-bg-card border border-gray-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
-        <label
-          htmlFor="pgn"
-          className="flex items-center gap-2 text-sm font-bold text-text-primary mb-2"
-        >
-          <ClipboardPaste size={16} /> {t("analyse.paste")}
+        <label htmlFor="pgn" className="flex items-center gap-2 text-sm font-bold text-text-primary mb-2">
+          <ClipboardPaste size={16} /> {t('analyse.paste')}
         </label>
         <textarea
           id="pgn"
@@ -219,19 +198,19 @@ export const Analyse = () => {
             disabled={!text.trim()}
             className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl"
           >
-            {t("analyse.go")}
+            {t('analyse.go')}
           </button>
           <button
             onClick={() => fileRef.current?.click()}
             className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 bg-bg-dark hover:bg-bg-darker text-sm font-semibold"
           >
-            <FileUp size={16} /> {t("analyse.file")}
+            <FileUp size={16} /> {t('analyse.file')}
           </button>
           <button
             onClick={() => setText(SAMPLE_PGN)}
             className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 bg-bg-dark hover:bg-bg-darker text-sm font-semibold"
           >
-            <Sparkles size={16} /> {t("analyse.sample")}
+            <Sparkles size={16} /> {t('analyse.sample')}
           </button>
           <input
             ref={fileRef}
@@ -244,7 +223,7 @@ export const Analyse = () => {
               const content = await f.text();
               setText(content);
               load(content);
-              e.target.value = "";
+              e.target.value = '';
             }}
           />
         </div>
@@ -252,9 +231,7 @@ export const Analyse = () => {
 
       {progress.games.length > 0 && (
         <div className="mt-6 bg-bg-card border border-gray-200/80 rounded-2xl p-5 shadow-sm">
-          <p className="text-sm font-bold text-text-primary mb-3">
-            {t("analyse.recent")}
-          </p>
+          <p className="text-sm font-bold text-text-primary mb-3">{t('analyse.recent')}</p>
           <div className="flex flex-col divide-y divide-gray-100">
             {progress.games.slice(0, 5).map((g) => (
               <button
@@ -266,11 +243,9 @@ export const Analyse = () => {
                 className="flex items-center justify-between py-2.5 text-left hover:bg-bg-darker rounded-lg px-2"
               >
                 <span className="text-sm text-text-primary">
-                  {t("analyse.vsEngine", { elo: g.engineElo })} · {g.result}
+                  {t('analyse.vsEngine', { elo: g.engineElo })} · {g.result}
                 </span>
-                <span className="text-xs text-text-secondary">
-                  {new Date(g.date).toLocaleDateString()}
-                </span>
+                <span className="text-xs text-text-secondary">{new Date(g.date).toLocaleDateString()}</span>
               </button>
             ))}
           </div>

@@ -53,7 +53,7 @@ Détails complets, définition des 42 variables et précision mesurée : [docs/M
 - Fichier d'origine : `modele_elo.joblib` (LightGBM, 600 arbres), entraîné sur des profils de 20 à 50 parties (Elo 809 à 2 796).
 - Entrée : un profil de joueur de 42 variables (pertes en centipions, précision, phases de jeu, positions critiques, gestion du temps), calculé par `src/elo/features.ts`.
 - Export exact pour le navigateur et l'API : `public/models/elo_lgbm.json` (`scripts/export_lgbm_model.py`, écart 0 avec LightGBM).
-- Précision mesurée sur 104 joueurs Lichess réels : erreur moyenne de 202 points avec 20 parties, 352 avec une seule. Pour reproduire : `npm run eval:elo`.
+- Précision mesurée sur 103 joueurs Lichess réels, parties analysées par le moteur du site : erreur moyenne de 173 points avec 20 parties (68 % des prédictions à ±200 près), 364 avec une seule. Pour reproduire : `npm run eval:elo`.
 - Ordre d'utilisation dans le site : modèle dans le navigateur, puis API Flask, puis estimation provisoire clairement signalée comme telle.
 
 API :

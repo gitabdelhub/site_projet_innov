@@ -8,6 +8,10 @@
  * analysed by Lichess (Stockfish evaluation after every ply), collected from 208 players.
  * Each line: { user, wid, bid, wr, br, moves (SAN), evals (cp White POV or {mate}) }.
  * Only players with 20+ games and a rating inside the model range (809-2796) are scored.
+ *
+ * By default the evaluations are those of the SITE's engine (browser Stockfish 19 lite,
+ * depth 12), stored in ml/data/calibration_evals_site_engine_d12.ndjson: this is what
+ * the site really computes. `npm run eval:elo -- --lichess` uses Lichess's evaluations.
  */
 import fs from 'node:fs';
 import { Chess } from 'chess.js';
@@ -21,7 +25,18 @@ const model = JSON.parse(fs.readFileSync('public/models/elo_lgbm.json', 'utf8'))
 if (model.features.join() !== FEATURE_NAMES.join()) throw new Error('Feature order differs from the model');
 
 type Eval = number | { mate: number };
-interface Row { user: string; wid: string; bid: string; wr: number; br: number; moves: string; evals: Eval[] }
+interface Row { id: string; user: string; wid: string; bid: string; wr: number; br: number; moves: string; evals: Eval[] }
+
+const useLichess = process.argv.includes('--lichess');
+const siteEvals = new Map<string, number[]>();
+if (!useLichess) {
+  for (const l of fs.readFileSync('ml/data/calibration_evals_site_engine_d12.ndjson', 'utf8').split('\n')) {
+    if (!l) continue;
+    const r = JSON.parse(l) as { id: string; cps: number[] };
+    siteEvals.set(r.id, r.cps);
+  }
+}
+const dumpFile = process.argv.slice(2).find((a) => !a.startsWith('--'));
 
 const toCp = (e: Eval) => (typeof e === 'number' ? e : e.mate > 0 ? 10000 : -10000);
 
@@ -32,13 +47,21 @@ for (const line of fs.readFileSync('ml/data/lichess_calibration_games.ndjson', '
   const user = g.user.toLowerCase();
   const color = g.wid === user ? 'w' : g.bid === user ? 'b' : null;
   if (!color) continue;
+  if (!useLichess && !siteEvals.has(g.id)) continue;
+  const ours = siteEvals.get(g.id);
   const chess = new Chess();
   const moves: PlayedMove[] = [];
-  const positions: PositionEval[] = [{ fen: chess.fen(), score: null, cp: 15, bestUci: null, bestSan: null }];
+  const positions: PositionEval[] = [{ fen: chess.fen(), score: null, cp: ours ? ours[0] : 15, bestUci: null, bestSan: null }];
   g.moves.split(' ').forEach((san, i) => {
     moves.push(toPlayed(chess.move(san)));
     // The last move of a mate has no evaluation: the side that mated wins.
-    const cp = i < g.evals.length ? toCp(g.evals[i]) : chess.turn() === 'w' ? -10000 : 10000;
+    const cp = ours
+      ? ours[i + 1]
+      : i < g.evals.length
+        ? toCp(g.evals[i])
+        : chess.turn() === 'w'
+          ? -10000
+          : 10000;
     positions.push({ fen: chess.fen(), score: null, cp, bestUci: null, bestSan: null });
   });
   const analysis = { positions, moves: [], depth: 0 } as unknown as GameAnalysis;
@@ -74,8 +97,8 @@ for (const k of [1, 3, 5, 10, 20, Infinity]) {
   console.log(`${k === Infinity ? 'all' : k} games: MAE ${Math.round(mae)}, within 200: ${Math.round(within * 100)}%`);
 }
 
-if (process.argv[2]) {
+if (dumpFile) {
   // Dump the full profiles (all games) for a parity check with other implementations.
   const out = players.map((p) => ({ rating: p.rating, features: buildProfile(p.stats) }));
-  fs.writeFileSync(process.argv[2], JSON.stringify(out));
+  fs.writeFileSync(dumpFile, JSON.stringify(out));
 }

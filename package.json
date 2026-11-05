@@ -9,7 +9,8 @@
     "preview": "vite preview --port 3000",
     "local": "node scripts/start-local.mjs",
     "api": "python ml_backend/app.py",
-    "eval:elo": "esbuild scripts/eval-elo-model.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/eval-elo.mjs && node node_modules/.cache/eval-elo.mjs"
+    "eval:elo": "esbuild scripts/eval-elo-model.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/eval-elo.mjs && node node_modules/.cache/eval-elo.mjs",
+    "calibrate:elo": "esbuild scripts/calibrate-elo-features.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/calibrate-elo.mjs && node node_modules/.cache/calibrate-elo.mjs"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.1.0",

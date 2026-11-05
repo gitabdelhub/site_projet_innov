@@ -24,7 +24,7 @@ interface LgbmTree {
 }
 
 export interface LgbmModel {
-  type: "lgbm";
+  type: 'lgbm';
   features: string[];
   scaler: { mean: number[]; scale: number[] };
   trees: LgbmTree[];
@@ -45,7 +45,7 @@ export const evaluateLgbm = (m: LgbmModel, raw: number[]): number => {
 let lgbmLoading: Promise<LgbmModel | null> | null = null;
 
 export const loadLgbmModel = (): Promise<LgbmModel | null> => {
-  lgbmLoading ??= fetch("/models/elo_lgbm.json")
+  lgbmLoading ??= fetch('/models/elo_lgbm.json')
     .then((r) => (r.ok ? (r.json() as Promise<LgbmModel>) : null))
     .catch(() => null);
   return lgbmLoading;

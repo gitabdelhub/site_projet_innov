@@ -29,7 +29,7 @@ Pour chaque coup du joueur, on compare l'évaluation Stockfish avant et après l
 - **perte** (`loss`) = max(0, éval avant - éval après), en centipions. Les évaluations sont bornées à ±10 pions, un mat compte comme ±10 pions.
 - **précision** (`acc`) = formule de précision par coup de Lichess, à partir de la baisse du pourcentage de gain.
 
-Coups comptés : on ignore les **4 premiers coups** de chaque camp (théorie d'ouverture) et les coups joués dans une position **déjà décidée** (|éval| > 7 pions).
+Coups comptés : on ignore les **6 premiers coups** de chaque camp (théorie d'ouverture) et les coups joués dans une position **déjà décidée** (|éval| > 5 pions).
 
 | Statistique | Définition |
 |---|---|
@@ -40,7 +40,7 @@ Coups comptés : on ignore les **4 premiers coups** de chaque camp (théorie d'o
 | `loss_mean_open`, `_mid`, `_end` | perte moyenne en ouverture (jusqu'au coup 10), en finale (13 points de pièces ou moins sur l'échiquier, pions et rois exclus) et en milieu de jeu (le reste) |
 | `loss_mean_critical`, `_noncritical` | perte moyenne quand la position est encore équilibrée (\|éval\| ≤ 1,5 pion), et sinon |
 | `frac_critical` | part des coups joués en position équilibrée |
-| `blunder_rate_critical` | part des gaffes (perte ≥ 3 pions) parmi les coups en position équilibrée |
+| `blunder_rate_critical` | part des gaffes (perte ≥ 2 pions) parmi les coups en position équilibrée |
 | `loss_after_blunder` | perte moyenne sur le coup qui suit une gaffe |
 | `frac_loss_0_10` ... `frac_loss_500_plus` | part des coups dont la perte est dans [0,10[, [10,25[, [25,50[, [50,100[, [100,200[, [200,500[, 500 et plus |
 | `loss_first_third`, `loss_last_third` | perte moyenne sur le premier et le dernier tiers des coups comptés |
@@ -70,29 +70,32 @@ Sans pendule, ces valeurs sont manquantes et remplacées par la moyenne d'entra�
 
 ## 3. Calage et précision mesurée
 
-Données : 3 769 parties Lichess classées, déjà analysées par Stockfish sur Lichess (`ml/data/lichess_calibration_games.ndjson`). 104 joueurs ont au moins 20 parties et un Elo dans la plage du modèle.
+Données : 3 769 parties Lichess classées (`ml/data/lichess_calibration_games.ndjson`). 103 joueurs ont au moins 20 parties et un Elo dans la plage du modèle, soit 2 300 parties.
 
-Les paramètres libres (seuils de position décidée et de position équilibrée, nombre de coups d'ouverture ignorés, bornes des phases, seuil de gaffe) ont été choisis parmi quelques valeurs simples, pour que la moyenne de chaque variable sur ces joueurs soit proche de la moyenne d'entraînement stockée dans le `.joblib`, et que l'erreur de prédiction soit la plus basse possible. Par exemple, le nombre moyen de coups comptés par partie passe de 36,9 (tous les coups) à 27,2, pour 26,6 à l'entraînement.
+**Les évaluations viennent du moteur du site.** Un premier calage sur les évaluations de Lichess donnait de bons résultats sur le papier, mais notre Stockfish du navigateur (version lite, profondeur 12) ne mesure pas les pertes exactement comme Lichess : sur un même joueur à 1 500, la prédiction passait de 1 640 (évaluations Lichess) à 1 890 (notre moteur). Nous avons donc ré-analysé les 2 300 parties avec le moteur du site lui-même (`ml/data/calibration_evals_site_engine_d12.ndjson`, 27 minutes) et calé les paramètres sur ces évaluations, c'est-à-dire sur ce que le site calcule vraiment.
+
+Les paramètres libres (nombre de coups d'ouverture ignorés, seuil de position décidée, seuil de position équilibrée, seuil de gaffe) ont été choisis parmi quelques valeurs simples (`npm run calibrate:elo`). Pour une mesure honnête, le script choisit aussi les paramètres sur une moitié des joueurs et mesure l'erreur sur l'autre moitié : **175 à 185 points**, proche de l'erreur sur tous les joueurs (172). Le choix ne colle donc pas artificiellement aux données.
 
 Pour reproduire : `npm run eval:elo` (même code que le site).
 
 | Parties dans le profil | Erreur moyenne | Prédictions à ±200 près |
 |---|---|---|
-| Toujours répondre la moyenne (référence) | 471 | |
-| 1 | 352 | 37 % |
-| 3 | 290 | 41 % |
-| 5 | 256 | 45 % |
-| 10 | 226 | 51 % |
-| 20 | 202 | 53 % |
+| Toujours répondre la moyenne (référence) | 465 | |
+| 1 | 364 | 34 % |
+| 3 | 277 | 46 % |
+| 5 | 245 | 50 % |
+| 10 | 201 | 59 % |
+| 20 | 173 | 68 % |
 
 Limites honnêtes :
 
-- l'erreur est plus élevée que les 127 points annoncés à l'entraînement, parce que nos définitions sont une reconstruction et que nos joueurs de test ont environ 22 parties (39 en moyenne à l'entraînement) ;
+- l'erreur reste plus élevée que les 127 points annoncés à l'entraînement : nos définitions sont une reconstruction, et nos joueurs de test ont environ 22 parties (39 en moyenne à l'entraînement) ;
 - comme tout modèle de ce type, il ramène vers le milieu : les débutants sont un peu surestimés, les très forts joueurs un peu sous-estimés ;
+- la revue d'une partie seule utilise la profondeur 14 (meilleure classification des coups) alors que le calage est fait à la profondeur 12 ; l'écart mesuré est d'environ 50 points, bien inférieur à la marge affichée pour une seule partie ;
 - les variables de temps n'ont pas pu être vérifiées (les parties de calage n'ont pas de pendule).
 
 ## 4. Dans le site
 
 - **Après une partie contre Stockfish** : la partie rejoint le profil du joueur (ses parties précédentes sur ce navigateur, 50 au plus). L'Elo affiché vient du profil entier.
 - **Analyse d'un PGN** : une seule partie donne une prédiction de fiabilité faible. Un fichier de plusieurs parties (export Lichess ou Chess.com) donne un vrai profil : le joueur est détecté, chaque partie est analysée par Stockfish (profondeur 12) et la prédiction s'affine à chaque partie.
-- La marge affichée (± 360 pour 1 partie, ± 200 dès 20 parties) et l'étiquette de fiabilité (faible sous 5 parties, moyenne de 5 à 19, bonne dès 20) viennent du tableau ci-dessus.
+- La marge affichée (± 360 pour 1 partie, ± 170 dès 20 parties) et l'étiquette de fiabilité (faible sous 5 parties, moyenne de 5 à 19, bonne dès 20) viennent du tableau ci-dessus.
