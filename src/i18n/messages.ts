@@ -1,6 +1,9 @@
 /* Interface texts. French is the reference language: every key must exist in `fr`. */
 
+import { onlineEn, onlineFr } from './online';
+
 const fr = {
+  ...onlineFr,
   'common.cancel': 'Annuler',
   'common.white': 'Blancs',
   'common.black': 'Noirs',
@@ -253,6 +256,7 @@ export type MessageKey = keyof typeof fr;
 export type Lang = 'fr' | 'en';
 
 const en: Record<MessageKey, string> = {
+  ...onlineEn,
   'common.cancel': 'Cancel',
   'common.white': 'White',
   'common.black': 'Black',
