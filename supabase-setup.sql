@@ -26,9 +26,27 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
--- Ancien schéma : retire la colonne email si elle existe (elle était publique).
+-- Ancien schéma (première version du site) : on le neutralise s'il est présent.
+-- Son déclencheur updated_at casserait la mise à jour des classements.
+drop trigger if exists update_profiles_updated_at on public.profiles;
+drop policy if exists "Users can insert their own profile" on public.profiles;
+drop policy if exists "Users can update their own profile" on public.profiles;
+drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
 alter table public.profiles drop column if exists email;
 alter table public.profiles drop column if exists updated_at;
+alter table public.profiles alter column elo_rating set default 1500;
+alter table public.profiles alter column games_played set default 0;
+do $$
+declare
+  t text;
+begin
+  -- Anciennes tables (games, matchmaking_queue, messages) : plus aucun accès depuis le site.
+  foreach t in array array['games', 'matchmaking_queue', 'messages'] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('revoke all on public.%I from anon, authenticated', t);
+    end if;
+  end loop;
+end $$;
 
 create or replace function public.handle_new_user()
 returns trigger
