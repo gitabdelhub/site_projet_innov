@@ -34,7 +34,7 @@ Limite connue : la légalité d'un coup est vérifiée par le navigateur de chaq
 
 1. Créer un projet gratuit sur https://supabase.com (bouton **New project**, région Europe).
 2. **SQL Editor** > **New query** : coller tout le fichier `supabase-setup.sql`, puis **Run**. Le script peut être relancé sans risque.
-3. **Authentication** > **Sign In / Providers** : en haut de la page, section **User Signups**, désactiver **Confirm email** puis **Save changes**, pour que les comptes soient utilisables tout de suite (le réglage n'est pas dans le panneau « Email » plus bas). Dans **Authentication** > **URL Configuration**, mettre l'adresse du site (par exemple `https://site-projet-innov.vercel.app`) dans **Site URL**.
+3. **Authentication** > **Sign In / Providers** : en haut de la page, section **User Signups**, désactiver **Confirm email** puis **Save changes**, pour que les comptes soient utilisables tout de suite (le réglage n'est pas dans le panneau « Email » plus bas). Dans **Authentication** > **URL Configuration**, mettre l'adresse du site (par exemple `https://site-projet-inno.vercel.app`) dans **Site URL**.
 4. **Project Settings** > **API** (ou **Data API**) : copier **Project URL** et la clé **anon public**.
 5. Vercel > le projet > **Settings** > **Environment Variables** : `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` avec ces deux valeurs, pour Production et Preview. Puis **Deployments** > **Redeploy**.
 
