@@ -351,6 +351,58 @@ begin
   perform t_check(g.status = 'finished' and g.result = '0-1' and g.reason = 'checkmate', 'checkmate ends the game');
   perform t_check(g.sans = array['f3', 'e5', 'g4', 'Qh4#'], 'moves stored');
 
+  -- Nobody can keep playing once the game is over, neither the loser nor the winner.
+  perform t_as(b);
+  failed := false;
+  begin
+    perform play_move(g.id, 4, 'a2a3', 'a3', 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/P4P2/1PPPP2P/RNBQKBNR b KQkq - 0 3');
+  exception when others then failed := true;
+  end;
+  perform t_check(failed, 'the mated player cannot move after the end');
+  perform t_as(a);
+  failed := false;
+  begin
+    perform play_move(g.id, 4, 'a7a6', 'a6', 'rnb1kbnr/1ppp1ppp/p7/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 0 4');
+  exception when others then failed := true;
+  end;
+  perform t_check(failed, 'the winner cannot move after the end either');
+  g := resign(g.id);
+  perform t_check(g.result = '0-1' and g.reason = 'checkmate', 'resigning after the mate changes nothing');
+  perform t_check((select ply from online_games where id = g.id) = 4, 'the finished game is unchanged');
+
+  -- White mates (Scholar's mate)
+  perform t_as(a);
+  g := create_challenge(300000, 0, 'w', true);
+  perform t_as(b);
+  g := join_challenge(g.id);
+  perform t_as(a);
+  g := play_move(g.id, 0, 'e2e4', 'e4', 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
+  perform t_as(b);
+  g := play_move(g.id, 1, 'e7e5', 'e5', 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2');
+  perform t_as(a);
+  g := play_move(g.id, 2, 'f1c4', 'Bc4', 'rnbqkbnr/pppp1ppp/8/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2');
+  perform t_as(b);
+  g := play_move(g.id, 3, 'b8c6', 'Nc6', 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3');
+  perform t_as(a);
+  g := play_move(g.id, 4, 'd1h5', 'Qh5', 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3');
+  perform t_as(b);
+  g := play_move(g.id, 5, 'g8f6', 'Nf6', 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4');
+  perform t_as(a);
+  g := play_move(g.id, 6, 'h5f7', 'Qxf7#', 'r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4', '1-0', 'checkmate');
+  perform t_check(g.status = 'finished' and g.result = '1-0' and g.reason = 'checkmate', 'white checkmate ends the game 1-0');
+
+  -- Stalemate is a draw
+  perform t_as(a);
+  g := create_challenge(300000, 0, 'w', true);
+  perform t_as(b);
+  g := join_challenge(g.id);
+  perform t_as(a);
+  g := play_move(g.id, 0, 'e2e4', 'e4', 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
+  perform t_as(b);
+  g := play_move(g.id, 1, 'e7e5', 'e5', 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', '1/2-1/2', 'stalemate');
+  perform t_check(g.status = 'finished' and g.result = '1/2-1/2' and g.reason = 'stalemate', 'stalemate ends the game as a draw');
+  perform t_as(a);
+
   insert into online_messages (game_id, user_id, username, body) values (g.id, a, 'Alice', 'gg');
   perform t_check((select count(*) from online_messages where game_id = g.id) = 1, 'a player can chat');
   perform t_as(c);

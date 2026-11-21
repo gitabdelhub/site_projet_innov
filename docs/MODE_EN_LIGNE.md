@@ -44,7 +44,7 @@ Attention : un projet Supabase gratuit est mis en pause après une semaine sans 
 
 | Commande | Ce qui est testé |
 |---|---|
-| `supabase/tests/run.sh` | 61 vérifications des fonctions SQL sur un Postgres local (tour, pendule, nulle, revanche, Elo, droits, discussion) |
+| `supabase/tests/run.sh` | 67 vérifications des fonctions SQL sur un Postgres local (tour, pendule, mat des deux côtés, pat, aucun coup après la fin, nulle, revanche, Elo, droits, discussion) |
 | `supabase/tests/race.sh` | 12 joueurs qui cherchent une partie en même temps : chacun obtient exactement une partie |
 | `supabase/tests/e2e-online.mjs` | Deux vrais navigateurs (un PC, un téléphone) : inscription, appariement, coups, discussion, mat, Elo, revanche, nulle, défi par lien, abandon, spectateur, classement, profil, chute du drapeau |
 
