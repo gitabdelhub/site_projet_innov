@@ -1,156 +1,102 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { Loader2, Trophy } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../online/auth';
+import { OnlineChecking, OnlineUnavailable, useOnlineAvailable } from './OnlineLobby';
+import { useI18n } from '../i18n';
+
+interface Row {
+  id: string;
+  username: string;
+  elo_rating: number;
+  games_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+const MEDAL = ['bg-yellow-400 text-white', 'bg-gray-300 text-white', 'bg-amber-600 text-white'];
 
 export const Leaderboard = () => {
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const configured = isSupabaseConfigured();
-
-  // Mock leaderboard data for local mode fallback
-  const mockUsers = [
-    { id: '1', username: 'GrandMaster', elo_rating: 1850, wins: 45, losses: 12, draws: 8 },
-    { id: '2', username: 'ChessPro', elo_rating: 1720, wins: 38, losses: 15, draws: 10 },
-    { id: '3', username: 'StrategyKing', elo_rating: 1650, wins: 32, losses: 18, draws: 12 },
-    { id: '4', username: 'TacticalGenius', elo_rating: 1580, wins: 28, losses: 20, draws: 15 },
-    { id: '5', username: 'EndgameMaster', elo_rating: 1520, wins: 25, losses: 22, draws: 18 },
-    { id: '6', username: 'OpeningExpert', elo_rating: 1480, wins: 22, losses: 24, draws: 20 },
-    { id: '7', username: 'PawnStorm', elo_rating: 1420, wins: 20, losses: 26, draws: 22 },
-    { id: '8', username: 'KnightRider', elo_rating: 1380, wins: 18, losses: 28, draws: 24 },
-    { id: '9', username: 'BishopBishop', elo_rating: 1350, wins: 16, losses: 30, draws: 26 },
-    { id: '10', username: 'RookiePlayer', elo_rating: 1280, wins: 14, losses: 32, draws: 28 },
-  ];
+  const { t } = useI18n();
+  const available = useOnlineAvailable();
+  const { user } = useAuth();
+  const [rows, setRows] = useState<Row[] | null>(null);
 
   useEffect(() => {
-    if (!configured) {
-      setUsers(mockUsers);
-      setLoading(false);
-      return;
-    }
+    if (!available) return;
+    supabase
+      .from('profiles')
+      .select('id, username, elo_rating, games_played, wins, losses, draws')
+      .gt('games_played', 0)
+      .order('elo_rating', { ascending: false })
+      .order('games_played', { ascending: false })
+      .limit(50)
+      .then(({ data }) => setRows((data ?? []) as Row[]));
+  }, [available]);
 
-    const fetchLeaderboard = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, username, elo_rating, wins, losses, draws')
-          .order('elo_rating', { ascending: false })
-          .limit(10);
-
-        if (error) throw error;
-        setUsers(data || []);
-      } catch (error) {
-        console.error('Error fetching leaderboard:', error);
-        setUsers(mockUsers); // fallback
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLeaderboard();
-  }, [configured]);
-
-  const getRankColor = (rank: number) => {
-    if (rank === 1) return 'text-yellow-500';
-    if (rank === 2) return 'text-gray-400';
-    if (rank === 3) return 'text-amber-600';
-    return 'text-text-secondary';
-  };
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return rank;
-  };
+  if (available === null) return <OnlineChecking />;
+  if (!available) return <OnlineUnavailable />;
 
   return (
-    <div className="min-h-screen bg-bg-dark py-8 px-4 font-sans select-none text-text-primary">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-black text-text-primary">Leaderboard</h1>
-          <Link
-            to="/"
-            className="text-text-secondary hover:text-text-primary text-sm font-semibold transition-colors"
-          >
-            ← Back to Home
-          </Link>
-        </div>
-
-        <div className="bg-bg-card border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-4 bg-bg-darker border-b border-gray-200/50 flex justify-between items-center">
-            <p className="text-text-secondary text-xs font-bold uppercase tracking-wider">
-              {configured ? '🏆 Live Global Standings' : '🎮 Global Standings (Local Mode)'}
-            </p>
+    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl sm:text-4xl font-black text-text-primary mb-2 flex items-center justify-center gap-3">
+          <Trophy className="text-accent" /> {t('lb.title')}
+        </h1>
+        <p className="text-text-secondary">{t('lb.subtitle')}</p>
+      </div>
+      <div className="bg-bg-card border border-gray-200/80 rounded-2xl shadow-sm overflow-hidden">
+        {rows === null ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="animate-spin text-text-secondary" />
           </div>
-          
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-text-secondary text-sm">Loading leaderboards...</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px] border-collapse">
-                <thead>
-                  <tr className="bg-bg-darker/60 text-left border-b border-gray-200/50">
-                    <th className="px-6 py-4 text-xs font-bold text-text-secondary uppercase tracking-wider w-20">Rank</th>
-                    <th className="px-6 py-4 text-xs font-bold text-text-secondary uppercase tracking-wider">Player</th>
-                    <th className="px-6 py-4 text-xs font-bold text-text-secondary uppercase tracking-wider text-right">Rating</th>
-                    <th className="px-6 py-4 text-xs font-bold text-text-secondary uppercase tracking-wider text-right w-32">Wins/Losses</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((userItem, index) => (
-                    <tr key={userItem.id} className="border-b border-gray-100 hover:bg-bg-darker/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className={`text-xl font-extrabold ${getRankColor(index + 1)}`}>
-                          {getRankIcon(index + 1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-accent/10 border border-accent/25 rounded-full flex items-center justify-center text-accent font-extrabold text-sm uppercase">
-                            {userItem.username[0]}
-                          </div>
-                          <span className="text-text-primary font-bold text-sm">{userItem.username}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-accent font-extrabold text-sm">{userItem.elo_rating} Elo</span>
-                      </td>
-                      <td className="px-6 py-4 text-right text-xs text-text-secondary font-semibold">
-                        <span className="text-green-500">{userItem.wins}W</span>
-                        <span className="mx-1">/</span>
-                        <span className="text-red-500">{userItem.losses}L</span>
-                      </td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="text-center py-12 text-text-secondary text-sm italic">
-                        No players registered yet
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-8 bg-bg-card border border-gray-200/80 rounded-2xl p-6 text-center shadow-sm">
-          <p className="text-text-secondary text-sm font-medium mb-4">
-            🏆 Want to climb the leaderboard? Challenge players and win matches to boost your Elo rating!
-          </p>
-          <Link
-            to="/game"
-            className="bg-accent hover:bg-accent-hover text-white font-bold py-3 px-8 rounded-xl text-sm transition-all shadow-sm shadow-accent/25 inline-block"
-          >
-            Play Now
-          </Link>
-        </div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-12 px-4">
+            <p className="text-text-secondary mb-4">{t('lb.empty')}</p>
+            <Link to="/online" className="inline-block bg-accent hover:bg-accent-hover text-white font-bold px-5 py-2.5 rounded-xl">
+              {t('online.title')}
+            </Link>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-bg-darker text-text-secondary text-xs uppercase tracking-wide">
+              <tr>
+                <th className="text-left px-4 py-3 w-14">#</th>
+                <th className="text-left px-2 py-3">{t('lb.player')}</th>
+                <th className="text-right px-2 py-3">{t('online.rating')}</th>
+                <th className="text-right px-2 py-3 hidden sm:table-cell">{t('lb.games')}</th>
+                <th className="text-right px-4 py-3">{t('lb.record')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.id} className={`border-t border-gray-100 ${r.id === user?.id ? 'bg-accent/5' : ''}`}>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex w-7 h-7 rounded-full items-center justify-center text-xs font-black ${
+                        MEDAL[i] ?? 'text-text-secondary'
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3 font-bold text-text-primary">
+                    {r.username}
+                    {r.id === user?.id && <span className="ml-1 text-xs font-semibold text-accent">({t('lb.you')})</span>}
+                  </td>
+                  <td className="px-2 py-3 text-right font-mono font-bold text-text-primary">{r.elo_rating}</td>
+                  <td className="px-2 py-3 text-right text-text-secondary hidden sm:table-cell">{r.games_played}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs">
+                    <span className="text-emerald-700">{r.wins}</span> / <span className="text-text-secondary">{r.draws}</span> /{' '}
+                    <span className="text-danger">{r.losses}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

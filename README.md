@@ -71,7 +71,7 @@ GET  /api/health
 
 1. Importer le dépôt sur vercel.com (framework détecté : Vite). `vercel.json` gère les routes de l'application et le cache du moteur.
 2. Variable d'environnement : `VITE_API_URL` = URL de l'API Render (facultatif : sans elle, le modèle tourne dans le navigateur).
-3. Facultatif : `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` pour les comptes et le jeu en ligne.
+3. Facultatif : `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` pour les comptes et le jeu en ligne (mise en route pas à pas : [docs/MODE_EN_LIGNE.md](docs/MODE_EN_LIGNE.md)).
 
 ### API : Render (gratuit)
 
